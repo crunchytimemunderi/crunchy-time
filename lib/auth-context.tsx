@@ -44,29 +44,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Check if we have cached auth data to avoid showing loading screen
-  const getCachedAuth = () => {
-    if (typeof window === 'undefined') return { user: null, userData: null };
+  // Try to get initial state from localStorage to prevent loading flash
+  const getInitialState = () => {
+    if (typeof window === 'undefined') return { loading: true, hasAuth: false };
     try {
-      const cached = sessionStorage.getItem('auth_cache');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        // Only use cache if it's less than 30 seconds old
-        if (Date.now() - parsed.timestamp < 30000) {
-          return { user: parsed.user, userData: parsed.userData };
-        }
-      }
-    } catch (e) {
-      // Ignore cache errors
+      const hasAuth = localStorage.getItem('has_auth') === 'true';
+      return { loading: !hasAuth, hasAuth };
+    } catch {
+      return { loading: true, hasAuth: false };
     }
-    return { user: null, userData: null };
   };
 
-  const cachedAuth = getCachedAuth();
-  const [user, setUser] = useState<User | null>(cachedAuth.user);
-  const [userData, setUserData] = useState<UserData | null>(cachedAuth.userData);
-  // Only show loading if we have no cached data
-  const [loading, setLoading] = useState(!cachedAuth.user);
+  const initialState = getInitialState();
+  const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(initialState.loading);
 
   // Fetch user data from Supabase users table
   const fetchUserData = async (uid: string): Promise<UserData | null> => {
@@ -140,17 +132,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (userData?.role) {
               document.cookie = `userRole=${userData.role}; path=/; max-age=604800`;
             }
-            // Cache auth data for fast loading
+            // Mark that we have auth - prevents loading on next mount
             try {
-              sessionStorage.setItem('auth_cache', JSON.stringify({
-                user: currentUser,
-                userData: userData,
-                timestamp: Date.now()
-              }));
-            } catch (e) {
-              // Ignore storage errors
-            }
+              localStorage.setItem('has_auth', 'true');
+            } catch (e) {}
           }
+        } else {
+          // No session - clear the flag
+          try {
+            localStorage.removeItem('has_auth');
+          } catch (e) {}
         }
 
         // Only set loading to false AFTER userData is loaded
@@ -178,14 +169,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserData(null);
         setLoading(false);
         document.cookie = "userRole=; path=/; max-age=0";
-        // Clear auth cache
+        // Clear the auth flag
         try {
-          sessionStorage.removeItem('auth_cache');
-        } catch (e) {
-          // Ignore storage errors
-        }
+          localStorage.removeItem('has_auth');
+        } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
-        setLoading(true);
         setUser(session.user);
         const data = await fetchUserData(session.user.id);
         if (mounted) {
@@ -193,17 +181,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (data?.role) {
             document.cookie = `userRole=${data.role}; path=/; max-age=604800`;
           }
-          // Cache auth data
+          // Set the auth flag
           try {
-            sessionStorage.setItem('auth_cache', JSON.stringify({
-              user: session.user,
-              userData: data,
-              timestamp: Date.now()
-            }));
-          } catch (e) {
-            // Ignore storage errors
-          }
-          // Only set loading to false AFTER userData is loaded
+            localStorage.setItem('has_auth', 'true');
+          } catch (e) {}
           setLoading(false);
         }
       }
