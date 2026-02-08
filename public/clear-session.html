@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Session & Restart</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        button:hover { background: #b91c1c; }
+        .success { color: #16a34a; font-weight: bold; }
+        .instruction { 
+            background: #fef3c7; 
+            padding: 15px; 
+            border-radius: 6px;
+            margin-top: 20px;
+            border-left: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔄 Clear Session</h1>
+        <p>Click the button below to clear all stored session data and fix the auth error.</p>
+        
+        <button onclick="clearAll()">Clear All Data & Redirect to Login</button>
+        
+        <div id="status"></div>
+        
+        <div class="instruction">
+            <strong>After clicking:</strong>
+            <ol>
+                <li>All cookies and localStorage will be cleared</li>
+                <li>You'll be redirected to login page</li>
+                <li>Log in with: qs1.tdr@gmail.com</li>
+                <li>Everything should work now! ✅</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function clearAll() {
+            try {
+                // Clear localStorage
+                localStorage.clear();
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                
+                // Clear all cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                // Show success
+                document.getElementById('status').innerHTML = '<p class="success">✅ All data cleared! Redirecting to login...</p>';
+                
+                // Redirect after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>
