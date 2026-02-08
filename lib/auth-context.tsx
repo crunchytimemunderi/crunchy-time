@@ -44,9 +44,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Check if we have cached auth data to avoid showing loading screen
+  const getCachedAuth = () => {
+    if (typeof window === 'undefined') return { user: null, userData: null };
+    try {
+      const cached = sessionStorage.getItem('auth_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Only use cache if it's less than 30 seconds old
+        if (Date.now() - parsed.timestamp < 30000) {
+          return { user: parsed.user, userData: parsed.userData };
+        }
+      }
+    } catch (e) {
+      // Ignore cache errors
+    }
+    return { user: null, userData: null };
+  };
+
+  const cachedAuth = getCachedAuth();
+  const [user, setUser] = useState<User | null>(cachedAuth.user);
+  const [userData, setUserData] = useState<UserData | null>(cachedAuth.userData);
+  // Only show loading if we have no cached data
+  const [loading, setLoading] = useState(!cachedAuth.user);
 
   // Fetch user data from Supabase users table
   const fetchUserData = async (uid: string): Promise<UserData | null> => {
@@ -109,7 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(async ({ data: { session } }) => {
         if (!mounted) return;
 
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
         let userData = null;
 
         if (session?.user) {
@@ -118,6 +139,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUserData(userData);
             if (userData?.role) {
               document.cookie = `userRole=${userData.role}; path=/; max-age=604800`;
+            }
+            // Cache auth data for fast loading
+            try {
+              sessionStorage.setItem('auth_cache', JSON.stringify({
+                user: currentUser,
+                userData: userData,
+                timestamp: Date.now()
+              }));
+            } catch (e) {
+              // Ignore storage errors
             }
           }
         }
@@ -147,6 +178,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserData(null);
         setLoading(false);
         document.cookie = "userRole=; path=/; max-age=0";
+        // Clear auth cache
+        try {
+          sessionStorage.removeItem('auth_cache');
+        } catch (e) {
+          // Ignore storage errors
+        }
       } else if (event === "SIGNED_IN" && session?.user) {
         setLoading(true);
         setUser(session.user);
@@ -155,6 +192,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserData(data);
           if (data?.role) {
             document.cookie = `userRole=${data.role}; path=/; max-age=604800`;
+          }
+          // Cache auth data
+          try {
+            sessionStorage.setItem('auth_cache', JSON.stringify({
+              user: session.user,
+              userData: data,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            // Ignore storage errors
           }
           // Only set loading to false AFTER userData is loaded
           setLoading(false);
