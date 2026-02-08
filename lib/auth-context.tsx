@@ -44,21 +44,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Try to get initial state from localStorage to prevent loading flash
-  const getInitialState = () => {
-    if (typeof window === 'undefined') return { loading: true, hasAuth: false };
-    try {
-      const hasAuth = localStorage.getItem('has_auth') === 'true';
-      return { loading: !hasAuth, hasAuth };
-    } catch {
-      return { loading: true, hasAuth: false };
-    }
-  };
-
-  const initialState = getInitialState();
+  // Check if user was previously authenticated (persisted across sessions)
+  const wasAuthenticated = typeof window !== 'undefined' 
+    ? localStorage.getItem('was_authenticated') === 'true' 
+    : false;
+    
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(initialState.loading);
+  // Never show loading if user was previously authenticated
+  const [loading, setLoading] = useState(!wasAuthenticated);
 
   // Fetch user data from Supabase users table
   const fetchUserData = async (uid: string): Promise<UserData | null> => {
@@ -132,16 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (userData?.role) {
               document.cookie = `userRole=${userData.role}; path=/; max-age=604800`;
             }
-            // Mark that we have auth - prevents loading on next mount
+            // Mark that user was authenticated - this persists forever
             try {
-              localStorage.setItem('has_auth', 'true');
+              localStorage.setItem('was_authenticated', 'true');
             } catch (e) {}
           }
-        } else {
-          // No session - clear the flag
-          try {
-            localStorage.removeItem('has_auth');
-          } catch (e) {}
         }
 
         // Only set loading to false AFTER userData is loaded
@@ -169,9 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserData(null);
         setLoading(false);
         document.cookie = "userRole=; path=/; max-age=0";
-        // Clear the auth flag
+        // Only clear on explicit sign out
         try {
-          localStorage.removeItem('has_auth');
+          localStorage.removeItem('was_authenticated');
         } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
@@ -181,9 +170,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (data?.role) {
             document.cookie = `userRole=${data.role}; path=/; max-age=604800`;
           }
-          // Set the auth flag
+          // Set the persistent flag
           try {
-            localStorage.setItem('has_auth', 'true');
+            localStorage.setItem('was_authenticated', 'true');
           } catch (e) {}
           setLoading(false);
         }

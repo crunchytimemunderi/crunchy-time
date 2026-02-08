@@ -15,6 +15,11 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
+  
+  // Check if user was previously authenticated
+  const wasAuthenticated = typeof window !== 'undefined' 
+    ? localStorage.getItem('was_authenticated') === 'true' 
+    : false;
 
   useEffect(() => {
     console.log(
@@ -53,9 +58,8 @@ export default function ProtectedRoute({
     }
   }, [user, userData, loading, requiredRole, router]);
 
-  // Only show loading on initial mount (no user data yet)
-  // If user exists, show content even during auth checks
-  if (loading && !user && !userData) {
+  // Only show loading on first visit (never authenticated before)
+  if (loading && !wasAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="text-center">
@@ -66,8 +70,8 @@ export default function ProtectedRoute({
     );
   }
 
-  // Don't render content until auth is confirmed
-  if (!loading && !user) {
+  // Don't render content until auth is confirmed (but only on first visit)
+  if (!loading && !user && !wasAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <p className="text-slate-300">Redirecting to login...</p>
@@ -75,8 +79,8 @@ export default function ProtectedRoute({
     );
   }
 
-  // Wait for userData to load before rendering (but only on initial mount)
-  if (user && !userData && loading) {
+  // Wait for userData to load before rendering (but only on first visit)
+  if (user && !userData && loading && !wasAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="text-center">
