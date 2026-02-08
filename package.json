@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "backup": "tsx scripts/backup.ts"
+    "backup": "tsx scripts/backup.ts",
+    "backup:drive": "tsx scripts/backup-to-drive.ts",
+    "auth:drive": "tsx scripts/auth-drive.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",
+    "googleapis": "^144.0.0",
     "dotenv": "^16.4.7",
     "firebase": "^10.14.1",
     "next": "^15.1.0",
