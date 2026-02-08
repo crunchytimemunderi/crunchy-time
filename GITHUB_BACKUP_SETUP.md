@@ -7,6 +7,7 @@ This guide sets up automatic daily backups to Google Drive using GitHub Actions 
 ### 1. Push Your Code to GitHub
 
 If you haven't already:
+
 ```bash
 git add .
 git commit -m "Add automatic Google Drive backup"
@@ -20,14 +21,14 @@ Go to your GitHub repository and add these secrets:
 1. Go to: `https://github.com/YOUR_USERNAME/YOUR_REPO/settings/secrets/actions`
 2. Click **"New repository secret"** for each of these:
 
-| Secret Name | Value |
-|------------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://pgpguzihsrfqkfbjwuee.supabase.co` |
+| Secret Name                 | Value                                                                                                                                                                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`  | `https://pgpguzihsrfqkfbjwuee.supabase.co`                                                                                                                                                                                    |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncGd1emloc3JmcWtmYmp3dWVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDE2OTkwNiwiZXhwIjoyMDg1NzQ1OTA2fQ.8jWTullqB5I2j4dfxvGosKipvgU7btuH3lAJudrKDOI` |
-| `GOOGLE_CLIENT_ID` | `5981537690-mhh16fj2vtspquavah20ft1k27eq953j.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | `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` |
-| `GOOGLE_REFRESH_TOKEN` | `1//0cRDBf00ugV7iCgYIARAAGAwSNwF-L9IrsndlAe-ReHu6q1PGZMvZXEntyrZ58suHXtKIdCm0xYxZzag3Pwq8uNKRyhJN_KVqF1Y` |
-| `GOOGLE_DRIVE_FOLDER_ID` | `1_C7TSs4C4s8jJ388SH-VsH-cReFFK9D_` |
+| `GOOGLE_CLIENT_ID`          | `5981537690-mhh16fj2vtspquavah20ft1k27eq953j.apps.googleusercontent.com`                                                                                                                                                      |
+| `GOOGLE_CLIENT_SECRET`      | `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`                                                                                                                                                                                         |
+| `GOOGLE_REFRESH_TOKEN`      | `1//0cRDBf00ugV7iCgYIARAAGAwSNwF-L9IrsndlAe-ReHu6q1PGZMvZXEntyrZ58suHXtKIdCm0xYxZzag3Pwq8uNKRyhJN_KVqF1Y`                                                                                                                     |
+| `GOOGLE_DRIVE_FOLDER_ID`    | `1_C7TSs4C4s8jJ388SH-VsH-cReFFK9D_`                                                                                                                                                                                           |
 
 ### 3. Enable GitHub Actions
 
@@ -83,6 +84,7 @@ To check if backups are running:
 ## Troubleshooting
 
 If backup fails:
+
 1. Check GitHub Actions logs for errors
 2. Verify all secrets are added correctly
 3. Check Google Drive folder permissions
