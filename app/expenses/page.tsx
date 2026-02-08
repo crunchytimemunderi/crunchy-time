@@ -201,7 +201,9 @@ function ExpensesContent() {
                 <h1 className="text-2xl font-bold text-gray-900">
                   Record Expense
                 </h1>
-                <p className="text-gray-500 text-sm">Track your daily expenses</p>
+                <p className="text-gray-500 text-sm">
+                  Track your daily expenses
+                </p>
               </div>
             </div>
             {isAdmin && (
@@ -333,7 +335,9 @@ function ExpensesContent() {
 
         {/* Today's Summary */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-lg p-4 mb-4 text-white">
-          <h2 className="text-base font-bold mb-3">📊 Today's Total Expense</h2>
+          <h2 className="text-base font-bold mb-3">
+            📊 Today&apos;s Total Expense
+          </h2>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-xs opacity-90">Total</div>
@@ -359,7 +363,7 @@ function ExpensesContent() {
         {/* Expenses List */}
         <div className="bg-white rounded-lg p-4">
           <h2 className="text-base font-bold text-gray-900 mb-3">
-            Today's Expenses ({expenses.length})
+            Today&apos;s Expenses ({expenses.length})
           </h2>
 
           {expenses.length === 0 ? (

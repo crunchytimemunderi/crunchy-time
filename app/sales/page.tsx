@@ -788,7 +788,7 @@ function SalesContent() {
 
         {/* Today's Summary */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-4 mb-4 text-white">
-          <h2 className="text-base font-bold mb-3">📊 Today's Total</h2>
+          <h2 className="text-base font-bold mb-3">📊 Today&apos;s Total</h2>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-xs opacity-90">Total</div>
@@ -814,7 +814,7 @@ function SalesContent() {
         {/* Sales List */}
         <div className="bg-white rounded-lg p-4">
           <h2 className="text-base font-bold text-gray-900 mb-3">
-            Today's Sales ({sales.length})
+            Today&apos;s Sales ({sales.length})
           </h2>
 
           {sales.length === 0 ? (
