@@ -399,7 +399,9 @@ function SalesContent() {
     userData,
   );
 
-  if (authLoading) {
+  // Only show loading on initial mount (when there's no user yet)
+  // If user exists, show page even during auth checks
+  if (authLoading && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
         <div className="text-center">

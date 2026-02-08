@@ -55,13 +55,15 @@ function DashboardContent() {
   const isAdmin = userData?.role === "admin";
   const today = getCurrentDate();
   
-  // Check if all required data is loaded
-  const dataLoading = !salesLoaded || !expensesLoaded || (isAdmin && !cashLoaded);
+  // Only show loading on initial mount (when there's no data yet)
+  const isInitialLoad = !salesLoaded || !expensesLoaded || (isAdmin && !cashLoaded);
+  const hasNoData = sales.length === 0 && expenses.length === 0;
+  const dataLoading = isInitialLoad && hasNoData;
 
   // Fetch and subscribe to sales data
   useEffect(() => {
-    // Wait for both user AND userData to be loaded
-    if (!user || !userData || authLoading) {
+    // Only wait for user and userData, not authLoading
+    if (!user || !userData) {
       return;
     }
 
@@ -132,12 +134,12 @@ function DashboardContent() {
     };
 
     fetchAndSubscribe();
-  }, [user, userData, authLoading, today]);
+  }, [user, userData, today]);
 
   // Fetch and subscribe to expenses data
   useEffect(() => {
-    // Wait for both user AND userData to be loaded
-    if (!user || !userData || authLoading) {
+    // Only wait for user and userData, not authLoading
+    if (!user || !userData) {
       return;
     }
 
@@ -210,11 +212,11 @@ function DashboardContent() {
     };
 
     fetchAndSubscribe();
-  }, [user, userData, authLoading, today]);
+  }, [user, userData, today]);
 
   // Fetch and subscribe to cash reconciliation (admin only)
   useEffect(() => {
-    if (!user || !userData || authLoading) return;
+    if (!user || !userData) return;
     
     // If not admin, mark cash as loaded immediately
     if (!isAdmin) {
