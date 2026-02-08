@@ -9,7 +9,7 @@
     "lint": "next lint",
     "backup": "tsx scripts/backup.ts",
     "backup:drive": "tsx scripts/backup-to-drive.ts",
-    "auth:drive": "tsx scripts/auth-drive.ts"
+    "auth:drive": "tsx scripts/auth-drive-auto.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",

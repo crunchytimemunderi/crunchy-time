@@ -1,8 +1,7 @@
 // =====================================================
-// GOOGLE DRIVE AUTHENTICATION HELPER (MANUAL METHOD)
+// GOOGLE DRIVE AUTHENTICATION - MANUAL METHOD
 // =====================================================
-// Run this once to get your refresh token
-// Usage: npm run auth:drive
+// Simpler method: Copy/paste the authorization code
 // =====================================================
 
 import { config } from "dotenv";
@@ -15,14 +14,13 @@ config({ path: resolve(process.cwd(), ".env.local") });
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-const REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"; // Manual code entry
 
 const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
 
 const oauth2Client = new google.auth.OAuth2(
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
-  REDIRECT_URI,
+  "urn:ietf:wg:oauth:2.0:oob", // Use OOB flow for manual code entry
 );
 
 console.log("\n🔐 Google Drive Authentication (Manual Method)\n");
@@ -42,35 +40,36 @@ const authUrl = oauth2Client.generateAuthUrl({
   prompt: "consent",
 });
 
-console.log("📋 Step 1: Open this URL in your browser:\n");
+console.log("📋 STEP 1: Open this URL in your browser:\n");
 console.log(authUrl);
-console.log("\n📋 Step 2: After authorizing, Google will show you a CODE");
-console.log("📋 Step 3: Copy the code and paste it below\n");
+console.log("\n");
+console.log("📋 STEP 2: After you authorize, Google will show you a code.");
+console.log("           Copy that code and paste it here.\n");
 
-// Prompt for the authorization code
+// Create readline interface
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-rl.question("Enter the authorization code: ", async (code) => {
+rl.question("Paste the authorization code here: ", async (code) => {
   try {
-    console.log("\n⏳ Exchanging code for tokens...");
+    console.log("\n⏳ Exchanging code for tokens...\n");
 
-    const { tokens } = await oauth2Client.getToken(code);
+    const { tokens } = await oauth2Client.getToken(code.trim());
 
-    console.log("\n🎉 Authentication successful!\n");
+    console.log("✅ Success! Authentication complete!\n");
     console.log("📋 Add this line to your .env.local file:\n");
     console.log(`GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}\n`);
-    console.log("⚠️  IMPORTANT: Keep this token secret!\n");
-
-    rl.close();
-    process.exit(0);
-  } catch (error) {
-    console.error("\n❌ Error:", error);
-    console.error("Please make sure you copied the complete authorization code.\n");
-    rl.close();
-    process.exit(1);
+    console.log("⚠️  IMPORTANT: Keep this token secret and secure!\n");
+  } catch (error: any) {
+    console.error("❌ Error:", error.message);
+    console.error("\nMake sure you:");
+    console.error("1. Copied the ENTIRE code from Google");
+    console.error("2. The code is still valid (they expire quickly)");
+    console.error("3. Try running the command again\n");
   }
-});
 
+  rl.close();
+  process.exit(0);
+});
