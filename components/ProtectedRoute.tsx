@@ -53,8 +53,9 @@ export default function ProtectedRoute({
     }
   }, [user, userData, loading, requiredRole, router]);
 
-  // Show loading state
-  if (loading) {
+  // Only show loading on initial mount (no user data yet)
+  // If user exists, show content even during auth checks
+  if (loading && !user && !userData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="text-center">
@@ -66,7 +67,7 @@ export default function ProtectedRoute({
   }
 
   // Don't render content until auth is confirmed
-  if (!user) {
+  if (!loading && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <p className="text-slate-300">Redirecting to login...</p>
@@ -74,8 +75,8 @@ export default function ProtectedRoute({
     );
   }
 
-  // Wait for userData to load before checking roles
-  if (user && !userData) {
+  // Wait for userData to load before rendering (but only on initial mount)
+  if (user && !userData && loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="text-center">
