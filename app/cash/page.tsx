@@ -267,14 +267,7 @@ function CashContent() {
   useEffect(() => {
     if (!user || authLoading || !selectedDate) return;
 
-    // Clear form fields immediately when date changes (before fetch)
-    console.log(`🔄 Date changed to: ${selectedDate}, clearing form...`);
-    setOpeningCash("");
-    setActualCash("");
-    setCashNotes("");
-    setOpeningUPI("");
-    setActualUPI("");
-    setUpiNotes("");
+    console.log(`🔄 Date changed to: ${selectedDate}, fetching history...`);
 
     const fetchAndSubscribe = async () => {
       const sevenDaysAgo = new Date();
@@ -335,25 +328,36 @@ function CashContent() {
           const previousDate = new Date(selectedDate + 'T00:00:00');
           previousDate.setDate(previousDate.getDate() - 1);
           const prevDateStr = previousDate.toISOString().split("T")[0];
+          console.log(`🔍 Looking for previous date: ${prevDateStr}`);
 
           const { data: prevData, error: prevError } = await supabase
             .from("cash_reconciliation")
-            .select("actual_closing_cash, actual_closing_upi")
+            .select("actual_closing_cash, actual_closing_upi, date")
             .eq("date", prevDateStr)
             .is("deleted_at", null)
             .maybeSingle();
 
+          console.log(`📦 Previous day query result:`, { prevData, prevError });
+
           if (prevData && !prevError) {
-            console.log(`📅 Using previous day's closing as opening balance`);
+            console.log(`📅 Using previous day's closing: Cash=${prevData.actual_closing_cash}, UPI=${prevData.actual_closing_upi}`);
             setOpeningCash(prevData.actual_closing_cash.toString());
             setOpeningUPI(prevData.actual_closing_upi.toString());
+            console.log(`✅ Set opening balances from previous day`);
+            // Clear actual and notes for new entry
             setActualCash("");
             setCashNotes("");
             setActualUPI("");
             setUpiNotes("");
           } else {
-            console.log(`🆕 No previous data found, starting fresh`);
-            // No previous data, form already cleared above
+            console.log(`🆕 No previous data found for ${prevDateStr}`, prevError);
+            // Clear all fields for fresh start
+            setOpeningCash("");
+            setActualCash("");
+            setCashNotes("");
+            setOpeningUPI("");
+            setActualUPI("");
+            setUpiNotes("");
           }
         }
       }
