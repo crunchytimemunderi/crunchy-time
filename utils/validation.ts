@@ -7,7 +7,7 @@ export function validateEmail(email: string): boolean {
 
 export function validateAmount(amount: string | number): boolean {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return !isNaN(numAmount) && numAmount > 0;
+  return !isNaN(numAmount) && numAmount >= 0;
 }
 
 export function validateRequired(value: any): boolean {

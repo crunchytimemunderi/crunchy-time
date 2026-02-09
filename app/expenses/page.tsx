@@ -86,23 +86,29 @@ function ExpensesContent() {
 
   // Check if user has permission to view expenses
   useEffect(() => {
-    console.log(`🔐 Expenses page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`);
-    
+    console.log(
+      `🔐 Expenses page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`,
+    );
+
     // Wait for auth to finish loading
     if (authLoading) {
       console.log("⏳ Auth still loading, waiting...");
       return;
     }
-    
+
     // If user exists but userData not loaded yet, wait
     if (user && !userData) {
-      console.warn("⚠️ userData is null but user exists - waiting for userData to load");
+      console.warn(
+        "⚠️ userData is null but user exists - waiting for userData to load",
+      );
       return;
     }
-    
+
     // Now check permission only if userData is available
     if (userData && !hasPermission("canViewExpenses")) {
-      console.log("❌ No canViewExpenses permission - redirecting to dashboard");
+      console.log(
+        "❌ No canViewExpenses permission - redirecting to dashboard",
+      );
       router.push("/dashboard");
     } else if (userData) {
       console.log("✅ Expenses access confirmed");
@@ -145,8 +151,8 @@ function ExpensesContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!amount || parseFloat(amount) <= 0) {
-      showMessage("error", "₹ Please enter amount");
+    if (amount.trim() === "" || isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
+      showMessage("error", "₹ Please enter valid amount (0 or more)");
       return;
     }
 
@@ -209,10 +215,10 @@ function ExpensesContent() {
           .is("deleted_at", null)
           .gte("date", exportStartDate)
           .lte("date", exportEndDate)
-          .order("created_at", { ascending: false});
+          .order("created_at", { ascending: false });
 
         if (error) throw error;
-        
+
         if (!data || data.length === 0) {
           showMessage("error", "No expenses data in selected date range");
           return;
@@ -228,7 +234,10 @@ function ExpensesContent() {
           created_at: "Time",
         });
 
-        exportToCSV(exportData, `expenses_${exportStartDate}_to_${exportEndDate}`);
+        exportToCSV(
+          exportData,
+          `expenses_${exportStartDate}_to_${exportEndDate}`,
+        );
         showMessage("success", "✓ Expenses exported!");
         setShowExportDateRange(false);
       } catch (error) {

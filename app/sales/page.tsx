@@ -461,8 +461,8 @@ function SalesContent() {
   };
 
   const handleAddMenuItem = async () => {
-    if (!newItemName.trim() || !newItemPrice || parseFloat(newItemPrice) <= 0) {
-      showMessage("error", "Enter item name and price");
+    if (!newItemName.trim() || newItemPrice.trim() === "" || isNaN(parseFloat(newItemPrice)) || parseFloat(newItemPrice) < 0) {
+      showMessage("error", "Enter item name and valid price (0 or more)");
       return;
     }
 
@@ -509,11 +509,12 @@ function SalesContent() {
   const handleUpdateMenuItem = async () => {
     if (
       !editName.trim() ||
-      !editPrice ||
-      parseFloat(editPrice) <= 0 ||
+      editPrice.trim() === "" ||
+      isNaN(parseFloat(editPrice)) ||
+      parseFloat(editPrice) < 0 ||
       !editingItem
     ) {
-      showMessage("error", "Enter valid name and price");
+      showMessage("error", "Enter valid name and price (0 or more)");
       return;
     }
 
@@ -648,8 +649,8 @@ function SalesContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!amount || parseFloat(amount) <= 0) {
-      showMessage("error", "₹ Please enter amount");
+    if (amount.trim() === "" || isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
+      showMessage("error", "₹ Please enter valid amount (0 or more)");
       return;
     }
 
