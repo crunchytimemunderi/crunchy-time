@@ -237,7 +237,7 @@ function CashContent() {
 
   // Fetch reconciliation history (last 7 days)
   useEffect(() => {
-    if (!user) return;
+    if (!user || authLoading) return;
 
     const fetchAndSubscribe = async () => {
       const sevenDaysAgo = new Date();
@@ -278,18 +278,18 @@ function CashContent() {
         }));
         setHistory(reconciliations);
 
-        // Check if today's reconciliation exists
-        const todayRec = reconciliations.find((r) => r.date === selectedDate);
-        setTodayReconciliation(todayRec || null);
+        // Check if selected date's reconciliation exists
+        const selectedDateRec = reconciliations.find((r) => r.date === selectedDate);
+        setTodayReconciliation(selectedDateRec || null);
 
-        // If today's reconciliation exists, populate form
-        if (todayRec) {
-          setOpeningCash(todayRec.openingCash.toString());
-          setActualCash(todayRec.actualClosingCash.toString());
-          setCashNotes(todayRec.notes || "");
-          setOpeningUPI(todayRec.openingUPI.toString());
-          setActualUPI(todayRec.actualClosingUPI.toString());
-          setUpiNotes(todayRec.upiNotes || "");
+        // If selected date's reconciliation exists, populate form
+        if (selectedDateRec) {
+          setOpeningCash(selectedDateRec.openingCash.toString());
+          setActualCash(selectedDateRec.actualClosingCash.toString());
+          setCashNotes(selectedDateRec.notes || "");
+          setOpeningUPI(selectedDateRec.openingUPI.toString());
+          setActualUPI(selectedDateRec.actualClosingUPI.toString());
+          setUpiNotes(selectedDateRec.upiNotes || "");
         } else {
           // Fetch previous day's closing balance to use as opening balance
           const previousDate = new Date(selectedDate + 'T00:00:00');
@@ -300,11 +300,20 @@ function CashContent() {
             .from("cash_reconciliation")
             .select("actual_closing_cash, actual_closing_upi")
             .eq("date", prevDateStr)
+            .is("deleted_at", null)
             .single();
 
           if (prevData) {
             setOpeningCash(prevData.actual_closing_cash.toString());
             setOpeningUPI(prevData.actual_closing_upi.toString());
+          } else {
+            // No previous data, clear form for new entry
+            setOpeningCash("");
+            setActualCash("");
+            setCashNotes("");
+            setOpeningUPI("");
+            setActualUPI("");
+            setUpiNotes("");
           }
         }
       }
@@ -323,6 +332,7 @@ function CashContent() {
             const { data } = await supabase
               .from("cash_reconciliation")
               .select("*")
+              .is("deleted_at", null)
               .gte("date", sevenDaysAgoStr)
               .order("date", { ascending: false });
 
@@ -349,10 +359,10 @@ function CashContent() {
             }));
             setHistory(reconciliations);
 
-            const todayRec = reconciliations.find(
+            const selectedDateRec = reconciliations.find(
               (r) => r.date === selectedDate,
             );
-            setTodayReconciliation(todayRec || null);
+            setTodayReconciliation(selectedDateRec || null);
           },
         )
         .subscribe();
@@ -363,7 +373,7 @@ function CashContent() {
     };
 
     fetchAndSubscribe();
-  }, [user, selectedDate]);
+  }, [user, selectedDate, authLoading]);
 
   const showMessage = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
