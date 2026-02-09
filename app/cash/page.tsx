@@ -41,6 +41,22 @@ function CashContent() {
   const { user, userData, hasPermission, loading: authLoading } = useAuth();
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
 
+  // Date change handler with validation
+  const handleDateChange = (newDate: string) => {
+    // Validate date format (YYYY-MM-DD)
+    if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      const dateObj = new Date(newDate + 'T00:00:00');
+      if (!isNaN(dateObj.getTime())) {
+        setSelectedDate(newDate);
+      } else {
+        console.warn("Invalid date:", newDate);
+      }
+    } else if (newDate === '') {
+      // Don't allow empty date, keep current
+      console.warn("Empty date not allowed");
+    }
+  };
+
   // Cash fields
   const [openingCash, setOpeningCash] = useState("");
   const [actualCash, setActualCash] = useState("");
@@ -86,7 +102,7 @@ function CashContent() {
 
   // Fetch today's cash and UPI sales and expenses
   useEffect(() => {
-    if (!user) return;
+    if (!user || !selectedDate) return;
 
     const fetchAndSubscribe = async () => {
       // Fetch cash sales
@@ -237,7 +253,7 @@ function CashContent() {
 
   // Fetch reconciliation history (last 7 days)
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (!user || authLoading || !selectedDate) return;
 
     const fetchAndSubscribe = async () => {
       const sevenDaysAgo = new Date();
@@ -296,14 +312,14 @@ function CashContent() {
           previousDate.setDate(previousDate.getDate() - 1);
           const prevDateStr = previousDate.toISOString().split("T")[0];
 
-          const { data: prevData } = await supabase
+          const { data: prevData, error: prevError } = await supabase
             .from("cash_reconciliation")
             .select("actual_closing_cash, actual_closing_upi")
             .eq("date", prevDateStr)
             .is("deleted_at", null)
-            .single();
+            .maybeSingle();
 
-          if (prevData) {
+          if (prevData && !prevError) {
             setOpeningCash(prevData.actual_closing_cash.toString());
             setOpeningUPI(prevData.actual_closing_upi.toString());
           } else {
@@ -382,6 +398,12 @@ function CashContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate selected date
+    if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+      showMessage("error", "Please select a valid date");
+      return;
+    }
 
     // Check if user data is loaded
     if (!user || !userData) {
@@ -630,7 +652,7 @@ function CashContent() {
               type="date"
               id="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => handleDateChange(e.target.value)}
               max={today}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
             />
