@@ -25,18 +25,12 @@ export async function validateCashReconciliation(
   actualCash: number,
   actualUPI: number,
 ): Promise<CashValidationResult> {
-  // Get all sales for the specified date
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
+  // Get all sales for the specified date using the date field (not timestamp)
   const { data: sales, error } = await supabase
     .from("sales")
     .select("payment_method, total_amount")
-    .gte("created_at", startOfDay.toISOString())
-    .lte("created_at", endOfDay.toISOString());
+    .eq("date", date)
+    .is("deleted_at", null);
 
   if (error) {
     console.error("Error fetching sales:", error);
