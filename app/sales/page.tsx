@@ -251,10 +251,28 @@ function SalesContent() {
 
   // Check permission - Only users with canAddSales permission can access
   useEffect(() => {
-    if (userData && !hasPermission("canAddSales")) {
-      router.push("/dashboard");
+    console.log(`🔐 Sales page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`);
+    
+    // Wait for auth to finish loading
+    if (authLoading) {
+      console.log("⏳ Auth still loading, waiting...");
+      return;
     }
-  }, [userData, hasPermission, router]);
+    
+    // If user exists but userData not loaded yet, wait
+    if (user && !userData) {
+      console.warn("⚠️ userData is null but user exists - waiting for userData to load");
+      return;
+    }
+    
+    // Now check permission only if userData is available
+    if (userData && !hasPermission("canAddSales")) {
+      console.log("❌ No canAddSales permission - redirecting to dashboard");
+      router.push("/dashboard");
+    } else if (userData) {
+      console.log("✅ Sales access confirmed");
+    }
+  }, [userData, user, hasPermission, router, authLoading]);
 
   const showMessage = useCallback((type: "success" | "error", text: string) => {
     if (type === "success") {

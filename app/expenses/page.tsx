@@ -33,7 +33,7 @@ const CATEGORIES = [
 
 function ExpensesContent() {
   const router = useRouter();
-  const { user, userData, hasPermission } = useAuth();
+  const { user, userData, hasPermission, loading: authLoading } = useAuth();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("chicken");
   const [paymentMode, setPaymentMode] = useState("cash");
@@ -87,10 +87,28 @@ function ExpensesContent() {
 
   // Check if user has permission to view expenses
   useEffect(() => {
-    if (userData && !hasPermission("canViewExpenses")) {
-      router.push("/dashboard");
+    console.log(`🔐 Expenses page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`);
+    
+    // Wait for auth to finish loading
+    if (authLoading) {
+      console.log("⏳ Auth still loading, waiting...");
+      return;
     }
-  }, [userData, hasPermission, router]);
+    
+    // If user exists but userData not loaded yet, wait
+    if (user && !userData) {
+      console.warn("⚠️ userData is null but user exists - waiting for userData to load");
+      return;
+    }
+    
+    // Now check permission only if userData is available
+    if (userData && !hasPermission("canViewExpenses")) {
+      console.log("❌ No canViewExpenses permission - redirecting to dashboard");
+      router.push("/dashboard");
+    } else if (userData) {
+      console.log("✅ Expenses access confirmed");
+    }
+  }, [userData, user, hasPermission, router, authLoading]);
 
   const showMessage = useCallback((type: "success" | "error", text: string) => {
     if (type === "success") {
