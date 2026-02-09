@@ -49,6 +49,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Start with loading true to avoid hydration mismatch
   const [loading, setLoading] = useState(true);
 
+  // Helper to save userData to localStorage
+  const saveUserDataToCache = (data: UserData | null) => {
+    try {
+      if (data) {
+        localStorage.setItem("cached_user_data", JSON.stringify(data));
+        console.log("💾 userData cached to localStorage");
+      }
+    } catch (e) {
+      console.warn("Failed to cache userData", e);
+    }
+  };
+
+  // Helper to load userData from localStorage
+  const loadUserDataFromCache = (): UserData | null => {
+    try {
+      const cached = localStorage.getItem("cached_user_data");
+      if (cached) {
+        const data = JSON.parse(cached) as UserData;
+        console.log("📂 Loaded cached userData:", data.role);
+        return data;
+      }
+    } catch (e) {
+      console.warn("Failed to load cached userData", e);
+    }
+    return null;
+  };
+
   // Fetch user data from Supabase users table
   const fetchUserData = async (uid: string): Promise<UserData | null> => {
     try {
@@ -104,6 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // Load cached userData immediately if available
+    const cachedUserData = loadUserDataFromCache();
+    if (cachedUserData) {
+      console.log("⚡ Using cached userData while verifying session");
+      setUserData(cachedUserData);
+    }
+
     // Force loading off after 40 seconds max (increased for slow connections)
     const timeout = setTimeout(() => {
       if (mounted) {
@@ -123,15 +157,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let userData = null;
 
         if (session?.user) {
-          userData = await fetchUserData(session.user.id);
-          if (mounted) {
+          // Try cache first, then fetch fresh
+          userData = cachedUserData || await fetchUserData(session.user.id);
+          if (mounted && userData) {
             setUserData(userData);
+            saveUserDataToCache(userData);
             if (userData?.role) {
               document.cookie = `userRole=${userData.role}; path=/; max-age=604800`;
             }
             // Mark that user was authenticated - this persists forever
             try {
               localStorage.setItem("was_authenticated", "true");
+            } catch (e) {}
+          }
+        } else {
+          // No session, clear cached data
+          if (mounted) {
+            setUserData(null);
+            try {
+              localStorage.removeItem("cached_user_data");
             } catch (e) {}
           }
         }
@@ -159,23 +203,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log(`🔄 Auth state change: event=${event}, hasSession=${!!session}`);
 
       if (event === "SIGNED_OUT") {
-        console.log("👋 User signed out");
+        console.log("👋 User signed out - clearing all cached data");
         setUser(null);
         setUserData(null);
         setLoading(false);
         document.cookie = "userRole=; path=/; max-age=0";
-        // Only clear on explicit sign out
+        // Clear all cached data on sign out
         try {
           localStorage.removeItem("was_authenticated");
+          localStorage.removeItem("cached_user_data");
         } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
         console.log("👍 User signed in, fetching userData");
         setUser(session.user);
         const data = await fetchUserData(session.user.id);
-        if (mounted) {
+        if (mounted && data) {
           setUserData(data);
-          console.log(`✅ userData set: role=${data?.role}`);
-          if (data?.role) {
+          saveUserDataToCache(data);
+          console.log(`✅ userData set and cached: role=${data.role}`);
+          if (data.role) {
             document.cookie = `userRole=${data.role}; path=/; max-age=604800`;
           }
           // Set the persistent flag
@@ -185,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
       }
+      // Ignore TOKEN_REFRESHED and other events - keep existing userData
     });
 
     return () => {
@@ -238,6 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUserData(data);
+      saveUserDataToCache(data);
       setLoading(false);
 
       // Store role in cookie for middleware
@@ -249,6 +297,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserData(null);
       setLoading(false);
       document.cookie = "userRole=; path=/; max-age=0";
+      try {
+        localStorage.removeItem("cached_user_data");
+      } catch (e) {}
       throw error;
     }
   };
@@ -266,8 +317,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear cookie
       document.cookie = "userRole=; path=/; max-age=0";
 
-      // Clear localStorage
-      localStorage.removeItem("supabase.auth.token");
+      // Clear all localStorage items
+      try {
+        localStorage.removeItem("supabase.auth.token");
+        localStorage.removeItem("cached_user_data");
+        localStorage.removeItem("was_authenticated");
+        console.log("🧹 Cleared all cached auth data");
+      } catch (e) {
+        console.warn("Failed to clear localStorage", e);
+      }
     } catch (error) {
       console.error("Error signing out:", error);
       throw error;
