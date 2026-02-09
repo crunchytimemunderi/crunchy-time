@@ -373,9 +373,15 @@ function CashContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Check if user data is loaded
+    if (!user || !userData) {
+      showMessage("error", "User data is still loading. Please wait a moment.");
+      return;
+    }
+
     // Check if editing past date and user is not admin
     const isPastDate = selectedDate < today;
-    if (isPastDate && userData?.role !== "admin") {
+    if (isPastDate && userData.role !== "admin") {
       showMessage(
         "error",
         "Only admins can edit previous reconciliation records",
@@ -449,8 +455,8 @@ function CashContent() {
         upi_difference: upiDifference,
         upi_notes: upiNotes.trim(),
         created_at: new Date().toISOString(),
-        created_by: user!.id,
-        created_by_name: userData!.displayName,
+        created_by: user.id,
+        created_by_name: userData.displayName,
       };
 
       // Check if record exists for this date (double-check to prevent duplicates)
