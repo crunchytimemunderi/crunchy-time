@@ -20,6 +20,7 @@ interface MenuItem {
   id: string;
   name: string;
   price: number;
+  image_url?: string;
   created_at: string;
 }
 
@@ -49,9 +50,11 @@ function SalesContent() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
+  const [newItemImage, setNewItemImage] = useState("");
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [editImage, setEditImage] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">(
     "success",
@@ -208,6 +211,7 @@ function SalesContent() {
           {
             name: newItemName.trim(),
             price: parseFloat(newItemPrice),
+            image_url: newItemImage.trim() || null,
           },
         ])
         .select();
@@ -221,6 +225,7 @@ function SalesContent() {
       showMessage("success", `✓ ${newItemName} added to menu!`);
       setNewItemName("");
       setNewItemPrice("");
+      setNewItemImage("");
       setShowAddItem(false);
       await fetchMenuItems();
     } catch (error) {
@@ -245,6 +250,7 @@ function SalesContent() {
         .update({
           name: editName.trim(),
           price: parseFloat(editPrice),
+          image_url: editImage.trim() || null,
         })
         .eq("id", editingItem.id);
 
@@ -254,6 +260,7 @@ function SalesContent() {
       setEditingItem(null);
       setEditName("");
       setEditPrice("");
+      setEditImage("");
       await fetchMenuItems();
     } catch (error) {
       console.error("Error updating menu item:", error);
@@ -284,6 +291,7 @@ function SalesContent() {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price.toString());
+    setEditImage(item.image_url || "");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -513,6 +521,13 @@ function SalesContent() {
                       className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
+                  <input
+                    type="text"
+                    value={newItemImage}
+                    onChange={(e) => setNewItemImage(e.target.value)}
+                    placeholder="Image URL (optional)"
+                    className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none mb-2"
+                  />
                   <button
                     type="button"
                     onClick={handleAddMenuItem}
@@ -555,6 +570,13 @@ function SalesContent() {
                       className="p-2 border rounded-md text-sm text-gray-900"
                     />
                   </div>
+                  <input
+                    type="text"
+                    value={editImage}
+                    onChange={(e) => setEditImage(e.target.value)}
+                    placeholder="Image URL (optional)"
+                    className="w-full p-2 border rounded-md text-sm text-gray-900 mb-2"
+                  />
                   <button
                     type="button"
                     onClick={handleUpdateMenuItem}
@@ -583,7 +605,17 @@ function SalesContent() {
                             : "bg-white text-gray-900 border-gray-300 hover:border-red-500"
                         }`}
                       >
-                        <div className="text-2xl mb-1">🍗</div>
+                        {item.image_url ? (
+                          <div className="w-full h-16 mb-1 flex items-center justify-center">
+                            <img 
+                              src={item.image_url} 
+                              alt={item.name}
+                              className="max-w-full max-h-full object-contain rounded"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-2xl mb-1">🍗</div>
+                        )}
                         <div className="font-bold text-sm">{item.name}</div>
                         <div className="text-base font-bold mt-1">
                           ₹{item.price}
