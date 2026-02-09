@@ -155,8 +155,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      
+      console.log(`🔄 Auth state change: event=${event}, hasSession=${!!session}`);
 
       if (event === "SIGNED_OUT") {
+        console.log("👋 User signed out");
         setUser(null);
         setUserData(null);
         setLoading(false);
@@ -166,10 +169,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("was_authenticated");
         } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
+        console.log("👍 User signed in, fetching userData");
         setUser(session.user);
         const data = await fetchUserData(session.user.id);
         if (mounted) {
           setUserData(data);
+          console.log(`✅ userData set: role=${data?.role}`);
           if (data?.role) {
             document.cookie = `userRole=${data.role}; path=/; max-age=604800`;
           }

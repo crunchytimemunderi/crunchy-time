@@ -25,7 +25,7 @@ export default function ProtectedRoute({
 
   useEffect(() => {
     console.log(
-      `🔍 ProtectedRoute useEffect: loading=${loading}, user=${!!user}, userData=${!!userData}, requiredRole=${requiredRole}`,
+      `🔍 ProtectedRoute useEffect: loading=${loading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}, requiredRole=${requiredRole}`,
     );
 
     if (!loading) {
@@ -36,7 +36,13 @@ export default function ProtectedRoute({
         return;
       }
 
-      // Check role requirement
+      // If user exists but userData is not loaded yet, wait
+      if (user && !userData) {
+        console.log("⏳ User exists but userData not loaded yet - waiting");
+        return;
+      }
+
+      // Check role requirement only if userData is available
       if (requiredRole && userData) {
         console.log(
           `🔍 Checking role: required=${requiredRole}, actual=${userData.role}`,
