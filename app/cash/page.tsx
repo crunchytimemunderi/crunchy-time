@@ -290,7 +290,7 @@ function CashContent() {
           setUpiNotes(todayRec.upiNotes || "");
         } else {
           // Fetch previous day's closing balance to use as opening balance
-          const previousDate = new Date(selectedDate);
+          const previousDate = new Date(selectedDate + 'T00:00:00');
           previousDate.setDate(previousDate.getDate() - 1);
           const prevDateStr = previousDate.toISOString().split("T")[0];
 

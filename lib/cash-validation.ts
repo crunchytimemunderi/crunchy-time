@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase";
 
 interface Sale {
   payment_method: string;
-  total_amount: number;
+  amount: number;
 }
 
 export interface CashValidationResult {
@@ -31,7 +31,7 @@ export async function validateCashReconciliation(
     // Get all sales for the specified date using the date field (not timestamp)
     const { data: sales, error } = await supabase
       .from("sales")
-      .select("payment_method, total_amount")
+      .select("payment_method, amount")
       .eq("date", date)
       .is("deleted_at", null);
 
@@ -47,11 +47,11 @@ export async function validateCashReconciliation(
     let expectedCash = 0;
     let expectedUPI = 0;
 
-    (sales || []).forEach((sale: Sale) => {
+    (sales || []).forEach((sale: any) => {
       if (sale.payment_method === "cash") {
-        expectedCash += sale.total_amount;
+        expectedCash += sale.amount;
       } else if (sale.payment_method === "upi") {
-        expectedUPI += sale.total_amount;
+        expectedUPI += sale.amount;
       }
     });
     
