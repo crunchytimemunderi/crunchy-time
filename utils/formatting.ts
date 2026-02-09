@@ -23,6 +23,20 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Converts a Date object to YYYY-MM-DD string in LOCAL timezone
+ * (Not UTC - uses the user's actual local date)
+ */
+export function toLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns current date in YYYY-MM-DD format in LOCAL timezone
+ */
 export function getCurrentDate(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }

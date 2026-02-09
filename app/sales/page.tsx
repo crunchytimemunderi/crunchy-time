@@ -10,6 +10,7 @@ import { exportToCSV, formatForExport } from "@/lib/export";
 import { saveCart, loadCart, clearCart } from "@/lib/cart-storage";
 import { useKeyboardShortcuts, createShortcuts } from "@/lib/keyboard-shortcuts";
 import { notifications } from "@/lib/notifications";
+import { getCurrentDate } from "@/utils/formatting";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Sale {
@@ -84,9 +85,7 @@ function SalesContent() {
   const [showExportDateRange, setShowExportDateRange] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  const [selectedDate, setSelectedDate] = useState(
-    () => new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
 
   // Load cart from localStorage on mount
@@ -684,7 +683,7 @@ function SalesContent() {
           amount: parseFloat(amount),
           payment_method: paymentMethod,
           description: description.trim(),
-          date: new Date().toISOString().split("T")[0],
+          date: getCurrentDate(),
           created_by: user.id,
           created_by_name: userData.displayName,
         })
@@ -821,7 +820,7 @@ function SalesContent() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  max={new Date().toISOString().split("T")[0]}
+                  max={getCurrentDate()}
                   className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                 />
               </div>
@@ -1434,7 +1433,7 @@ function SalesContent() {
                     type="date"
                     value={exportStartDate}
                     onChange={(e) => setExportStartDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
+                    max={getCurrentDate()}
                     className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -1446,7 +1445,7 @@ function SalesContent() {
                     type="date"
                     value={exportEndDate}
                     onChange={(e) => setExportEndDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
+                    max={getCurrentDate()}
                     min={exportStartDate}
                     className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                   />

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/lib/auth-context";
-import { formatCurrency, formatTime, getCurrentDate } from "@/utils/formatting";
+import { formatCurrency, formatTime, getCurrentDate, toLocalDateString } from "@/utils/formatting";
 import { validateAmount } from "@/utils/validation";
 import { formatINR } from "@/lib/currency";
 import { notifications } from "@/lib/notifications";
@@ -274,7 +274,7 @@ function CashContent() {
     const fetchAndSubscribe = async () => {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+      const sevenDaysAgoStr = toLocalDateString(sevenDaysAgo);
 
       console.log(`📅 Fetching reconciliation history from ${sevenDaysAgoStr} to now...`);
 
@@ -324,7 +324,7 @@ function CashContent() {
         // ALWAYS fetch previous day's closing balance for validation/auto-fill
         const previousDate = new Date(selectedDate + 'T00:00:00');
         previousDate.setDate(previousDate.getDate() - 1);
-        const prevDateStr = previousDate.toISOString().split("T")[0];
+        const prevDateStr = toLocalDateString(previousDate);
         console.log(`🔍 Fetching previous day (${prevDateStr}) for opening balance validation...`);
 
         const { data: prevData, error: prevError } = await supabase
@@ -644,7 +644,7 @@ function CashContent() {
       // Refetch history to show the new/updated entry
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+      const sevenDaysAgoStr = toLocalDateString(sevenDaysAgo);
       
       const { data: historyData } = await supabase
         .from("cash_reconciliation")

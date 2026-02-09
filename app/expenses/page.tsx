@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { exportToCSV, formatForExport } from "@/lib/export";
 import { notifications } from "@/lib/notifications";
+import { getCurrentDate } from "@/utils/formatting";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Expense {
@@ -53,9 +54,7 @@ function ExpensesContent() {
   const [exportEndDate, setExportEndDate] = useState("");
   const [showExportDateRange, setShowExportDateRange] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState(
-    () => new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
 
   // Filter and search expenses
@@ -169,7 +168,7 @@ function ExpensesContent() {
           category,
           payment_mode: paymentMode,
           description: description.trim(),
-          date: new Date().toISOString().split("T")[0],
+          date: getCurrentDate(),
           created_at: new Date().toISOString(),
           created_by: user.id,
           created_by_name: userData.displayName,
@@ -336,7 +335,7 @@ function ExpensesContent() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  max={new Date().toISOString().split("T")[0]}
+                  max={getCurrentDate()}
                   className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-red-500 focus:outline-none"
                 />
               </div>
@@ -518,7 +517,7 @@ function ExpensesContent() {
                     type="date"
                     value={exportStartDate}
                     onChange={(e) => setExportStartDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
+                    max={getCurrentDate()}
                     className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -530,7 +529,7 @@ function ExpensesContent() {
                     type="date"
                     value={exportEndDate}
                     onChange={(e) => setExportEndDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
+                    max={getCurrentDate()}
                     min={exportStartDate}
                     className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                   />
