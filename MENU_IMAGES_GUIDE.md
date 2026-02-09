@@ -45,6 +45,9 @@ The code changes have been automatically pushed to GitHub and will deploy to Ver
 - **Beverages**: Drinks and refreshments
 - **Desserts**: Sweet items
 - **Specials**: Special or seasonal items
+- **Custom...**: Enter your own category name (e.g., "Appetizers", "Combos", "Lunch Specials", etc.)
+
+When you select "Custom..." from the dropdown, a text input field will appear where you can type your own category name.
 
 ### How Items Are Displayed
 
