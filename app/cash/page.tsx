@@ -632,7 +632,7 @@ function CashContent() {
         }));
         setHistory(reconciliations);
         const updatedRec = reconciliations.find((r) => r.date === selectedDate) || null;
-        console.log(`📊 After save - Dates in history:`, reconciliations.map(r => r.date).join(\", \"));
+        console.log(`📊 After save - Dates in history:`, reconciliations.map(r => r.date).join(", "));
         console.log(`✅ After save - Current date (${selectedDate}):`, updatedRec ? '✅ FOUND & SAVED' : '❌ ERROR - NOT FOUND');
         
         if (updatedRec) {
