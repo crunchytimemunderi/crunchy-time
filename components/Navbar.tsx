@@ -53,7 +53,12 @@ export default function Navbar() {
 
   // Calculate visible links - MUST be before early returns (React hooks rules)
   const visibleLinks = useMemo(() => {
-    if (!userData) return [];
+    // If userData not loaded yet, show basic links for all authenticated users
+    if (!userData) {
+      return navLinks.filter(link => 
+        link.href === "/dashboard" || link.href === "/sales" || link.href === "/expenses"
+      );
+    }
 
     return navLinks.filter((link) => {
       // Check permission if defined
@@ -70,8 +75,9 @@ export default function Navbar() {
     return null;
   }
 
-  // Wait for userData to load before showing navbar
-  if (loading || !userData) {
+  // Only hide navbar if we're still loading AND don't have user yet
+  // Once user exists, show navbar even if userData is still loading
+  if (loading && !user) {
     return null;
   }
 
