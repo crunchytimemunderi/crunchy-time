@@ -25,29 +25,37 @@ export async function validateCashReconciliation(
   actualCash: number,
   actualUPI: number,
 ): Promise<CashValidationResult> {
-  // Get all sales for the specified date using the date field (not timestamp)
-  const { data: sales, error } = await supabase
-    .from("sales")
-    .select("payment_method, total_amount")
-    .eq("date", date)
-    .is("deleted_at", null);
+  try {
+    console.log("🔍 Validating cash reconciliation for date:", date);
+    
+    // Get all sales for the specified date using the date field (not timestamp)
+    const { data: sales, error } = await supabase
+      .from("sales")
+      .select("payment_method, total_amount")
+      .eq("date", date)
+      .is("deleted_at", null);
 
-  if (error) {
-    console.error("Error fetching sales:", error);
-    throw new Error("Failed to validate cash reconciliation");
-  }
-
-  // Calculate expected amounts from sales
-  let expectedCash = 0;
-  let expectedUPI = 0;
-
-  (sales || []).forEach((sale: Sale) => {
-    if (sale.payment_method === "cash") {
-      expectedCash += sale.total_amount;
-    } else if (sale.payment_method === "upi") {
-      expectedUPI += sale.total_amount;
+    if (error) {
+      console.error("❌ Error fetching sales for validation:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
+      throw new Error(`Database error: ${error.message || "Failed to fetch sales data"}`);
     }
-  });
+
+    console.log("✅ Sales fetched for validation:", sales?.length || 0, "records");
+
+    // Calculate expected amounts from sales
+    let expectedCash = 0;
+    let expectedUPI = 0;
+
+    (sales || []).forEach((sale: Sale) => {
+      if (sale.payment_method === "cash") {
+        expectedCash += sale.total_amount;
+      } else if (sale.payment_method === "upi") {
+        expectedUPI += sale.total_amount;
+      }
+    });
+    
+    console.log("💰 Expected Cash:", expectedCash, "Expected UPI:", expectedUPI);
 
   // Calculate differences
   const cashDifference = actualCash - expectedCash;
@@ -115,6 +123,10 @@ export async function validateCashReconciliation(
     isSignificantDifference: Math.abs(totalDifference) > THRESHOLD,
     suggestions,
   };
+  } catch (error: any) {
+    console.error("❌ Validation error:", error);
+    throw new Error(error.message || "Failed to validate cash reconciliation");
+  }
 }
 
 /**
