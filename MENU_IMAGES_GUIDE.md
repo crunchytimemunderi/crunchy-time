@@ -1,7 +1,7 @@
-# Menu Item Images - Setup & Usage Guide
+# Menu Item Images & Categories - Setup & Usage Guide
 
 ## Overview
-Your menu items now support images! You can add image URLs to your menu items and they'll display in the sales page.
+Your menu items now support images and category grouping! Menu items are organized by categories like Main Dishes, Sides, Beverages, Desserts, and Specials.
 
 ## Setup (One-Time)
 
@@ -12,14 +12,16 @@ Run this SQL in your Supabase SQL Editor:
 2. Copy and paste the contents of `ADD_MENU_IMAGES.sql`
 3. Click "Run"
 
-This adds an `image_url` column to your `menu_items` table.
+This adds:
+- `image_url` column to store menu item images
+- `category` column to organize items by type
 
 ### Step 2: Deploy to Vercel
 The code changes have been automatically pushed to GitHub and will deploy to Vercel.
 
 ## How to Use
 
-### Adding Images to Menu Items
+### Adding Items with Categories
 
 **When Adding a New Item:**
 1. Go to Sales page
@@ -27,13 +29,30 @@ The code changes have been automatically pushed to GitHub and will deploy to Ver
 3. Fill in:
    - Item name (e.g., "Full Chicken")
    - Price (e.g., 150)
+   - **Category** (select from dropdown: Main Dishes, Sides, Beverages, Desserts, Specials)
    - **Image URL** (e.g., https://example.com/chicken.jpg) - *Optional*
 4. Click "✓ Add to Menu"
 
 **When Editing Existing Items:**
 1. Click the ✎ (edit) button on any menu item
-2. Update the Image URL field
+2. Update any field including Category and Image URL
 3. Click "✓ Update Item"
+
+### Available Categories
+
+- **Main Dishes**: Your main food items (Full Chicken, Half Chicken, etc.)
+- **Sides**: Side dishes and accompaniments
+- **Beverages**: Drinks and refreshments
+- **Desserts**: Sweet items
+- **Specials**: Special or seasonal items
+
+### How Items Are Displayed
+
+Menu items are now grouped by category with headers:
+- Each category shows as a separate section
+- Category name appears as a bold header with red underline
+- Items within each category are displayed in a grid
+- Empty categories are hidden
 
 ### Image URL Examples
 
