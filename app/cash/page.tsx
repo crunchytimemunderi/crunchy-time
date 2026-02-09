@@ -296,6 +296,7 @@ function CashContent() {
 
         // Check if selected date's reconciliation exists
         const selectedDateRec = reconciliations.find((r) => r.date === selectedDate);
+        console.log(`📊 History loaded: ${reconciliations.length} records, Selected date (${selectedDate}):`, selectedDateRec ? 'FOUND' : 'NOT FOUND');
         setTodayReconciliation(selectedDateRec || null);
 
         // If selected date's reconciliation exists, populate form
@@ -492,16 +493,21 @@ function CashContent() {
       };
 
       // Check if record exists for this date (double-check to prevent duplicates)
-      const { data: existingRec } = await supabase
+      const { data: existingRec, error: checkError } = await supabase
         .from("cash_reconciliation")
         .select("id")
         .eq("date", selectedDate)
         .is("deleted_at", null)
-        .single();
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("Error checking existing record:", checkError);
+      }
 
       if (existingRec || todayReconciliation) {
         // Update existing reconciliation
         const recordId = existingRec?.id || todayReconciliation?.id;
+        console.log(`🔄 UPDATING existing record ID: ${recordId} for date: ${selectedDate}`);
         const { error } = await supabase
           .from("cash_reconciliation")
           .update(reconciliationData)
@@ -512,6 +518,7 @@ function CashContent() {
         notifications.success("Updated", "Cash reconciliation updated successfully");
       } else {
         // Create new reconciliation
+        console.log(`➕ INSERTING new record for date: ${selectedDate}`);
         const { error } = await supabase
           .from("cash_reconciliation")
           .insert([reconciliationData]);
@@ -556,7 +563,19 @@ function CashContent() {
           createdByName: r.created_by_name,
         }));
         setHistory(reconciliations);
-        setTodayReconciliation(reconciliations.find((r) => r.date === selectedDate) || null);
+        const updatedRec = reconciliations.find((r) => r.date === selectedDate) || null;
+        console.log(`✅ After save - History: ${reconciliations.length} records, Current date (${selectedDate}):`, updatedRec ? 'SAVED' : 'ERROR');
+        setTodayReconciliation(updatedRec);
+        
+        // Populate form with saved data to show it persists
+        if (updatedRec) {
+          setOpeningCash(updatedRec.openingCash.toString());
+          setActualCash(updatedRec.actualClosingCash.toString());
+          setCashNotes(updatedRec.notes || "");
+          setOpeningUPI(updatedRec.openingUPI.toString());
+          setActualUPI(updatedRec.actualClosingUPI.toString());
+          setUpiNotes(updatedRec.upiNotes || "");
+        }
       }
     } catch (error: any) {
       console.error("Error saving reconciliation:", error);
