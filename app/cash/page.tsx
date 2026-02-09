@@ -849,7 +849,7 @@ function CashContent() {
                       >
                         Opening Cash (₹) * <span className="text-xs text-blue-600">(Auto from previous closing)</span>
                       </label>
-                      {isAdmin && !openingCashEditable && (
+                      {userData?.role === "admin" && !openingCashEditable && (
                         <button
                           type="button"
                           onClick={() => setOpeningCashEditable(true)}
@@ -1025,7 +1025,7 @@ function CashContent() {
                       >
                         Opening UPI Balance (₹) * <span className="text-xs text-blue-600">(Auto from previous closing)</span>
                       </label>
-                      {isAdmin && !openingUPIEditable && (
+                      {userData?.role === "admin" && !openingUPIEditable && (
                         <button
                           type="button"
                           onClick={() => setOpeningUPIEditable(true)}
