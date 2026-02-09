@@ -59,6 +59,7 @@ function CashContent() {
 
   // Cash fields
   const [openingCash, setOpeningCash] = useState("");
+  const [openingCashEditable, setOpeningCashEditable] = useState(false);
   const [actualCash, setActualCash] = useState("");
   const [cashNotes, setCashNotes] = useState("");
   const [cashSales, setCashSales] = useState(0);
@@ -66,6 +67,7 @@ function CashContent() {
 
   // UPI fields
   const [openingUPI, setOpeningUPI] = useState("");
+  const [openingUPIEditable, setOpeningUPIEditable] = useState(false);
   const [actualUPI, setActualUPI] = useState("");
   const [upiNotes, setUpiNotes] = useState("");
   const [upiSales, setUpiSales] = useState(0);
@@ -334,7 +336,11 @@ function CashContent() {
           setActualUPI(selectedDateRec.actualClosingUPI.toString());
           setUpiNotes(selectedDateRec.upiNotes || "");
           
-          console.log(`✅ Form populated with saved reconciliation data`);
+          // Allow editing of saved data (it was manually entered)
+          setOpeningCashEditable(true);
+          setOpeningUPIEditable(true);
+          
+          console.log(`✅ Form populated with saved reconciliation data (editable)`);
         } else {
           console.log(`� No existing data for ${selectedDate}, fetching PREVIOUS day's closing...`);
           // Fetch previous day's closing balance to use as opening balance
@@ -364,7 +370,12 @@ function CashContent() {
             
             setOpeningCash(prevData.actual_closing_cash.toString());
             setOpeningUPI(prevData.actual_closing_upi.toString());
-            console.log(`✅ Set opening balances from previous day's closing`);
+            
+            // Auto-filled from previous day - make read-only
+            setOpeningCashEditable(false);
+            setOpeningUPIEditable(false);
+            
+            console.log(`✅ Set opening balances from previous day's closing (read-only)`);
             
             // Clear actual and notes for new entry
             setActualCash("");
@@ -383,6 +394,10 @@ function CashContent() {
             setOpeningUPI("");
             setActualUPI("");
             setUpiNotes("");
+            
+            // No previous data, allow manual entry
+            setOpeningCashEditable(true);
+            setOpeningUPIEditable(true);
           }
         }
       }
@@ -444,6 +459,9 @@ function CashContent() {
               setOpeningUPI(selectedDateRec.openingUPI.toString());
               setActualUPI(selectedDateRec.actualClosingUPI.toString());
               setUpiNotes(selectedDateRec.upiNotes || "");
+              // Saved data is editable
+              setOpeningCashEditable(true);
+              setOpeningUPIEditable(true);
             } else {
               console.log(`🔔 Realtime: No data for ${selectedDate} in realtime update, keeping current form state`);
             }
@@ -653,6 +671,9 @@ function CashContent() {
           setOpeningUPI(updatedRec.openingUPI.toString());
           setActualUPI(updatedRec.actualClosingUPI.toString());
           setUpiNotes(updatedRec.upiNotes || "");
+          // Just saved data is editable
+          setOpeningCashEditable(true);
+          setOpeningUPIEditable(true);
         } else {
           console.error(`❌ ERROR: Saved data not found in refetched history for ${selectedDate}`);
         }
@@ -821,12 +842,23 @@ function CashContent() {
                 <div className="space-y-4">
                   {/* Opening Cash */}
                   <div>
-                    <label
-                      htmlFor="openingCash"
-                      className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
-                    >
-                      Opening Cash (₹) *
-                    </label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label
+                        htmlFor="openingCash"
+                        className="text-sm font-medium text-gray-900 dark:text-white"
+                      >
+                        Opening Cash (₹) * <span className="text-xs text-blue-600">(Auto from previous closing)</span>
+                      </label>
+                      {isAdmin && !openingCashEditable && (
+                        <button
+                          type="button"
+                          onClick={() => setOpeningCashEditable(true)}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="number"
                       id="openingCash"
@@ -835,9 +867,12 @@ function CashContent() {
                       value={openingCash}
                       onChange={(e) => setOpeningCash(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                      className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                        openingCashEditable ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200 cursor-not-allowed'
+                      }`}
                       required
-                      disabled={loading}
+                      disabled={loading || !openingCashEditable}
+                      readOnly={!openingCashEditable}
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Cash in drawer at start of day
@@ -983,12 +1018,23 @@ function CashContent() {
                 <div className="space-y-4">
                   {/* Opening UPI */}
                   <div>
-                    <label
-                      htmlFor="openingUPI"
-                      className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
-                    >
-                      Opening UPI Balance (₹) *
-                    </label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label
+                        htmlFor="openingUPI"
+                        className="text-sm font-medium text-gray-900 dark:text-white"
+                      >
+                        Opening UPI Balance (₹) * <span className="text-xs text-blue-600">(Auto from previous closing)</span>
+                      </label>
+                      {isAdmin && !openingUPIEditable && (
+                        <button
+                          type="button"
+                          onClick={() => setOpeningUPIEditable(true)}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="number"
                       id="openingUPI"
@@ -997,13 +1043,13 @@ function CashContent() {
                       value={openingUPI}
                       onChange={(e) => setOpeningUPI(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
+                      className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        openingUPIEditable ? 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600' : 'bg-gray-100 dark:bg-gray-600 border-gray-200 dark:border-gray-500 cursor-not-allowed'
+                      }`}
                       required
-                      disabled={loading}
+                      disabled={loading || !openingUPIEditable}
+                      readOnly={!openingUPIEditable}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      UPI balance at start of day
-                    </p>
                   </div>
 
                   {/* Actual UPI */}
