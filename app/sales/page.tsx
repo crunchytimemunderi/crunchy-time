@@ -607,8 +607,8 @@ function SalesContent() {
                       >
                         {item.image_url ? (
                           <div className="w-full h-16 mb-1 flex items-center justify-center">
-                            <img 
-                              src={item.image_url} 
+                            <img
+                              src={item.image_url}
                               alt={item.name}
                               className="max-w-full max-h-full object-contain rounded"
                             />
