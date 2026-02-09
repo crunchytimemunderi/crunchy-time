@@ -45,13 +45,13 @@ function CashContent() {
   const handleDateChange = (newDate: string) => {
     // Validate date format (YYYY-MM-DD)
     if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-      const dateObj = new Date(newDate + 'T00:00:00');
+      const dateObj = new Date(newDate + "T00:00:00");
       if (!isNaN(dateObj.getTime())) {
         setSelectedDate(newDate);
       } else {
         console.warn("Invalid date:", newDate);
       }
-    } else if (newDate === '') {
+    } else if (newDate === "") {
       // Don't allow empty date, keep current
       console.warn("Empty date not allowed");
     }
@@ -255,6 +255,15 @@ function CashContent() {
   useEffect(() => {
     if (!user || authLoading || !selectedDate) return;
 
+    // Clear form fields immediately when date changes (before fetch)
+    console.log(`🔄 Date changed to: ${selectedDate}, clearing form...`);
+    setOpeningCash("");
+    setActualCash("");
+    setCashNotes("");
+    setOpeningUPI("");
+    setActualUPI("");
+    setUpiNotes("");
+
     const fetchAndSubscribe = async () => {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -295,12 +304,18 @@ function CashContent() {
         setHistory(reconciliations);
 
         // Check if selected date's reconciliation exists
-        const selectedDateRec = reconciliations.find((r) => r.date === selectedDate);
-        console.log(`📊 History loaded: ${reconciliations.length} records, Selected date (${selectedDate}):`, selectedDateRec ? 'FOUND' : 'NOT FOUND');
+        const selectedDateRec = reconciliations.find(
+          (r) => r.date === selectedDate,
+        );
+        console.log(
+          `📊 History loaded: ${reconciliations.length} records, Selected date (${selectedDate}):`,
+          selectedDateRec ? "FOUND" : "NOT FOUND",
+        );
         setTodayReconciliation(selectedDateRec || null);
 
         // If selected date's reconciliation exists, populate form
         if (selectedDateRec) {
+          console.log(`✅ Populating form with saved data for ${selectedDate}`);
           setOpeningCash(selectedDateRec.openingCash.toString());
           setActualCash(selectedDateRec.actualClosingCash.toString());
           setCashNotes(selectedDateRec.notes || "");
@@ -308,8 +323,11 @@ function CashContent() {
           setActualUPI(selectedDateRec.actualClosingUPI.toString());
           setUpiNotes(selectedDateRec.upiNotes || "");
         } else {
+          console.log(
+            `📝 No existing data for ${selectedDate}, fetching previous day's closing...`,
+          );
           // Fetch previous day's closing balance to use as opening balance
-          const previousDate = new Date(selectedDate + 'T00:00:00');
+          const previousDate = new Date(selectedDate + "T00:00:00");
           previousDate.setDate(previousDate.getDate() - 1);
           const prevDateStr = previousDate.toISOString().split("T")[0];
 
@@ -321,16 +339,16 @@ function CashContent() {
             .maybeSingle();
 
           if (prevData && !prevError) {
+            console.log(`📅 Using previous day's closing as opening balance`);
             setOpeningCash(prevData.actual_closing_cash.toString());
             setOpeningUPI(prevData.actual_closing_upi.toString());
-          } else {
-            // No previous data, clear form for new entry
-            setOpeningCash("");
             setActualCash("");
             setCashNotes("");
-            setOpeningUPI("");
             setActualUPI("");
             setUpiNotes("");
+          } else {
+            console.log(`🆕 No previous data found, starting fresh`);
+            // No previous data, form already cleared above
           }
         }
       }
@@ -374,12 +392,26 @@ function CashContent() {
               createdBy: r.created_by,
               createdByName: r.created_by_name,
             }));
+            console.log(
+              `🔔 Realtime update: ${reconciliations.length} records in history`,
+            );
             setHistory(reconciliations);
 
             const selectedDateRec = reconciliations.find(
               (r) => r.date === selectedDate,
             );
             setTodayReconciliation(selectedDateRec || null);
+
+            // Update form if this is the currently selected date
+            if (selectedDateRec) {
+              console.log(`🔄 Realtime: Updating form for ${selectedDate}`);
+              setOpeningCash(selectedDateRec.openingCash.toString());
+              setActualCash(selectedDateRec.actualClosingCash.toString());
+              setCashNotes(selectedDateRec.notes || "");
+              setOpeningUPI(selectedDateRec.openingUPI.toString());
+              setActualUPI(selectedDateRec.actualClosingUPI.toString());
+              setUpiNotes(selectedDateRec.upiNotes || "");
+            }
           },
         )
         .subscribe();
@@ -451,12 +483,16 @@ function CashContent() {
       const validation = await validateCashReconciliation(
         selectedDate,
         parseFloat(actualCash),
-        parseFloat(actualUPI)
+        parseFloat(actualUPI),
       );
 
       // Show validation suggestions
       if (validation.isSignificantDifference) {
-        notifications.warning("Reconciliation Discrepancy", validation.suggestions[0], 0);
+        notifications.warning(
+          "Reconciliation Discrepancy",
+          validation.suggestions[0],
+          0,
+        );
       } else {
         notifications.success("Validation Passed", validation.suggestions[0]);
       }
@@ -466,7 +502,7 @@ function CashContent() {
         notifications.cashDiscrepancy(
           validation.expectedCash,
           validation.actualCash,
-          validation.cashDifference
+          validation.cashDifference,
         );
       }
 
@@ -507,7 +543,9 @@ function CashContent() {
       if (existingRec || todayReconciliation) {
         // Update existing reconciliation
         const recordId = existingRec?.id || todayReconciliation?.id;
-        console.log(`🔄 UPDATING existing record ID: ${recordId} for date: ${selectedDate}`);
+        console.log(
+          `🔄 UPDATING existing record ID: ${recordId} for date: ${selectedDate}`,
+        );
         const { error } = await supabase
           .from("cash_reconciliation")
           .update(reconciliationData)
@@ -515,7 +553,10 @@ function CashContent() {
 
         if (error) throw error;
         showMessage("success", "Reconciliation updated successfully!");
-        notifications.success("Updated", "Cash reconciliation updated successfully");
+        notifications.success(
+          "Updated",
+          "Cash reconciliation updated successfully",
+        );
       } else {
         // Create new reconciliation
         console.log(`➕ INSERTING new record for date: ${selectedDate}`);
@@ -525,21 +566,24 @@ function CashContent() {
 
         if (error) throw error;
         showMessage("success", "Reconciliation saved successfully!");
-        notifications.success("Saved", "Cash reconciliation saved successfully");
+        notifications.success(
+          "Saved",
+          "Cash reconciliation saved successfully",
+        );
       }
-      
+
       // Refetch history to show the new/updated entry
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
-      
+
       const { data: historyData } = await supabase
         .from("cash_reconciliation")
         .select("*")
         .is("deleted_at", null)
         .gte("date", sevenDaysAgoStr)
         .order("date", { ascending: false });
-        
+
       if (historyData) {
         const reconciliations = historyData.map((r) => ({
           id: r.id,
@@ -563,18 +607,27 @@ function CashContent() {
           createdByName: r.created_by_name,
         }));
         setHistory(reconciliations);
-        const updatedRec = reconciliations.find((r) => r.date === selectedDate) || null;
-        console.log(`✅ After save - History: ${reconciliations.length} records, Current date (${selectedDate}):`, updatedRec ? 'SAVED' : 'ERROR');
+        const updatedRec =
+          reconciliations.find((r) => r.date === selectedDate) || null;
+        console.log(
+          `✅ After save - History: ${reconciliations.length} records, Current date (${selectedDate}):`,
+          updatedRec ? "SAVED" : "ERROR",
+        );
         setTodayReconciliation(updatedRec);
-        
+
         // Populate form with saved data to show it persists
         if (updatedRec) {
+          console.log(`💾 Form repopulated after save for ${selectedDate}`);
           setOpeningCash(updatedRec.openingCash.toString());
           setActualCash(updatedRec.actualClosingCash.toString());
           setCashNotes(updatedRec.notes || "");
           setOpeningUPI(updatedRec.openingUPI.toString());
           setActualUPI(updatedRec.actualClosingUPI.toString());
           setUpiNotes(updatedRec.upiNotes || "");
+        } else {
+          console.error(
+            `❌ ERROR: Saved data not found in refetched history for ${selectedDate}`,
+          );
         }
       }
     } catch (error: any) {
@@ -583,7 +636,10 @@ function CashContent() {
         "error",
         error.message || "Failed to save reconciliation. Please try again.",
       );
-      notifications.error("Error", error.message || "Failed to save reconciliation");
+      notifications.error(
+        "Error",
+        error.message || "Failed to save reconciliation",
+      );
     } finally {
       setLoading(false);
     }
@@ -631,558 +687,558 @@ function CashContent() {
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-            💵 Cash & UPI Reconciliation
-          </h1>
-          <Link
-            href="/dashboard"
-            className="text-blue-600 hover:underline self-start md:self-auto"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
-
-        {/* Message Alert */}
-        {message && (
-          <div
-            className={`mb-6 p-4 rounded-lg ${
-              message.type === "success"
-                ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200"
-                : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
-            }`}
-          >
-            <p className="font-medium">{message.text}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-6 md:gap-8">
-          {/* Date Selection */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <label
-              htmlFor="date"
-              className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+              💵 Cash & UPI Reconciliation
+            </h1>
+            <Link
+              href="/dashboard"
+              className="text-blue-600 hover:underline self-start md:self-auto"
             >
-              Select Date
-            </label>
-            <input
-              type="date"
-              id="date"
-              value={selectedDate}
-              onChange={(e) => handleDateChange(e.target.value)}
-              max={today}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
-            />
-
-            {/* Warning for non-admin viewing past dates */}
-            {selectedDate < today && userData?.role !== "admin" && (
-              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-300">
-                  ⚠️ You are viewing a past date. Only admins can edit or delete
-                  previous reconciliation records.
-                </p>
-              </div>
-            )}
+              ← Back to Dashboard
+            </Link>
           </div>
 
-          {/* CASH & UPI SIDE BY SIDE */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* LEFT SIDE - CASH */}
-            <div className="space-y-6">
-              {/* Cash Flow Summary */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg border-2 border-green-200 dark:border-green-700">
-                <h2 className="text-2xl font-bold mb-6 text-green-700">
-                  💵 Cash Flow
-                </h2>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-                    <span className="font-medium text-blue-700">
-                      💰 Opening Cash
-                    </span>
-                    <span className="text-2xl font-bold text-blue-700">
-                      {openingCash ? formatINR(parseFloat(openingCash)) : "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
-                    <span className="text-green-700">+ Cash Sales</span>
-                    <span className="text-xl font-bold text-green-700">
-                      {formatINR(cashSales)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-4 bg-red-50 rounded-lg">
-                    <span className="text-red-700">− Cash Expenses</span>
-                    <span className="text-xl font-bold text-red-700">
-                      {formatINR(cashExpenses)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
-                    <span className="font-bold text-purple-700">
-                      = Expected Closing
-                    </span>
-                    <span className="text-2xl font-bold text-purple-700">
-                      {formatINR(expectedClosingCash)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cash Reconciliation Form */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-green-700">
-                  Record Cash
-                </h2>
-
-                <div className="space-y-4">
-                  {/* Opening Cash */}
-                  <div>
-                    <label
-                      htmlFor="openingCash"
-                      className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
-                    >
-                      Opening Cash (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      id="openingCash"
-                      step="0.01"
-                      min="0"
-                      value={openingCash}
-                      onChange={(e) => setOpeningCash(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      required
-                      disabled={loading}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Cash in drawer at start of day
-                    </p>
-                  </div>
-
-                  {/* Actual Cash Count */}
-                  <div>
-                    <label
-                      htmlFor="actualCash"
-                      className="block text-sm font-medium mb-2"
-                    >
-                      Actual Cash Count (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      id="actualCash"
-                      step="0.01"
-                      min="0"
-                      value={actualCash}
-                      onChange={(e) => setActualCash(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700"
-                      required
-                      disabled={loading}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Physical cash counted in drawer
-                    </p>
-                  </div>
-
-                  {/* Cash Difference Display */}
-                  {actualCash && openingCash && (
-                    <div
-                      className={`p-4 rounded-lg border-2 ${
-                        Math.abs(cashDifference) < 0.01
-                          ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700"
-                          : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold">
-                          {Math.abs(cashDifference) < 0.01
-                            ? "✓ Perfect!"
-                            : "⚠️ Difference"}
-                        </span>
-                        <span
-                          className={`text-2xl font-bold ${
-                            Math.abs(cashDifference) < 0.01
-                              ? "text-green-700 dark:text-green-300"
-                              : "text-red-700 dark:text-red-300"
-                          }`}
-                        >
-                          {cashDifference >= 0 ? "+" : ""}
-                          {formatINR(cashDifference)}
-                        </span>
-                      </div>
-                      {Math.abs(cashDifference) >= 0.01 && (
-                        <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">
-                          {cashDifference > 0
-                            ? "Cash over - more than expected"
-                            : "Cash short - less than expected"}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Cash Notes */}
-                  <div>
-                    <label
-                      htmlFor="cashNotes"
-                      className="block text-sm font-medium mb-2"
-                    >
-                      Cash Notes (Optional)
-                    </label>
-                    <textarea
-                      id="cashNotes"
-                      value={cashNotes}
-                      onChange={(e) => setCashNotes(e.target.value)}
-                      placeholder="Any cash discrepancies..."
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700"
-                      rows={2}
-                      disabled={loading}
-                      maxLength={200}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {cashNotes.length}/200
-                    </p>
-                  </div>
-                </div>
-              </div>
+          {/* Message Alert */}
+          {message && (
+            <div
+              className={`mb-6 p-4 rounded-lg ${
+                message.type === "success"
+                  ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200"
+                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
+              }`}
+            >
+              <p className="font-medium">{message.text}</p>
             </div>
+          )}
 
-            {/* RIGHT SIDE - UPI */}
-            <div className="space-y-6">
-              {/* UPI Flow Summary */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg border-2 border-blue-200 dark:border-blue-700">
-                <h2 className="text-2xl font-bold mb-6 text-blue-700">
-                  📱 UPI Flow
-                </h2>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-                    <span className="font-medium text-blue-700">
-                      💳 Opening UPI
-                    </span>
-                    <span className="text-2xl font-bold text-blue-700">
-                      {openingUPI ? formatINR(parseFloat(openingUPI)) : "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
-                    <span className="text-green-700">+ UPI Sales</span>
-                    <span className="text-xl font-bold text-green-700">
-                      {formatINR(upiSales)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-4 bg-red-50 rounded-lg">
-                    <span className="text-red-700">− UPI Expenses</span>
-                    <span className="text-xl font-bold text-red-700">
-                      {formatINR(upiExpenses)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
-                    <span className="font-bold text-purple-700">
-                      = Expected Closing
-                    </span>
-                    <span className="text-2xl font-bold text-purple-700">
-                      {formatINR(expectedClosingUPI)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* UPI Reconciliation Form */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-blue-700">
-                  Record UPI
-                </h2>
-
-                <div className="space-y-4">
-                  {/* Opening UPI */}
-                  <div>
-                    <label
-                      htmlFor="openingUPI"
-                      className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
-                    >
-                      Opening UPI Balance (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      id="openingUPI"
-                      step="0.01"
-                      min="0"
-                      value={openingUPI}
-                      onChange={(e) => setOpeningUPI(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
-                      required
-                      disabled={loading}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      UPI balance at start of day
-                    </p>
-                  </div>
-
-                  {/* Actual UPI */}
-                  <div>
-                    <label
-                      htmlFor="actualUPI"
-                      className="block text-sm font-medium mb-2"
-                    >
-                      Actual UPI Balance (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      id="actualUPI"
-                      step="0.01"
-                      min="0"
-                      value={actualUPI}
-                      onChange={(e) => setActualUPI(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
-                      required
-                      disabled={loading}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Actual UPI balance verified
-                    </p>
-                  </div>
-
-                  {/* UPI Difference Display */}
-                  {actualUPI && openingUPI && (
-                    <div
-                      className={`p-4 rounded-lg border-2 ${
-                        Math.abs(upiDifference) < 0.01
-                          ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700"
-                          : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold">
-                          {Math.abs(upiDifference) < 0.01
-                            ? "✓ Perfect!"
-                            : "⚠️ Difference"}
-                        </span>
-                        <span
-                          className={`text-2xl font-bold ${
-                            Math.abs(upiDifference) < 0.01
-                              ? "text-green-700 dark:text-green-300"
-                              : "text-red-700 dark:text-red-300"
-                          }`}
-                        >
-                          {upiDifference >= 0 ? "+" : ""}
-                          {formatINR(upiDifference)}
-                        </span>
-                      </div>
-                      {Math.abs(upiDifference) >= 0.01 && (
-                        <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">
-                          {upiDifference > 0
-                            ? "UPI over - more than expected"
-                            : "UPI short - less than expected"}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* UPI Notes */}
-                  <div>
-                    <label
-                      htmlFor="upiNotes"
-                      className="block text-sm font-medium mb-2"
-                    >
-                      UPI Notes (Optional)
-                    </label>
-                    <textarea
-                      id="upiNotes"
-                      value={upiNotes}
-                      onChange={(e) => setUpiNotes(e.target.value)}
-                      placeholder="Any UPI discrepancies..."
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
-                      rows={2}
-                      disabled={loading}
-                      maxLength={200}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {upiNotes.length}/200
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Submit Button - Full Width */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <form onSubmit={handleSubmit}>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 rounded-md hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg shadow-lg"
+          <div className="grid grid-cols-1 gap-6 md:gap-8">
+            {/* Date Selection */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+              <label
+                htmlFor="date"
+                className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
               >
-                {loading
-                  ? "Saving..."
-                  : todayReconciliation
-                    ? "✓ Update Cash & UPI Reconciliation"
-                    : "✓ Save Cash & UPI Reconciliation"}
-              </button>
-            </form>
-          </div>
+                Select Date
+              </label>
+              <input
+                type="date"
+                id="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                max={today}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              />
 
-          {/* History - Full Width */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
-              📅 Last 7 Days
-            </h2>
+              {/* Warning for non-admin viewing past dates */}
+              {selectedDate < today && userData?.role !== "admin" && (
+                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                    ⚠️ You are viewing a past date. Only admins can edit or
+                    delete previous reconciliation records.
+                  </p>
+                </div>
+              )}
+            </div>
 
-            {history.length === 0 ? (
-              <div className="text-center py-12 text-gray-600 dark:text-gray-400">
-                <p className="text-4xl mb-2">📊</p>
-                <p className="text-sm">No reconciliation history</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {history.map((rec) => (
-                  <div
-                    key={rec.id}
-                    className={`p-4 border-2 rounded-lg transition ${
-                      rec.date === selectedDate
-                        ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 dark:bg-gray-700/50"
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-bold text-gray-900 dark:text-white">
-                          {new Date(rec.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatTime(
-                            rec.createdAt?.toDate
-                              ? rec.createdAt.toDate()
-                              : new Date(),
-                          )}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex gap-3">
-                          <div>
-                            <p className="text-xs text-green-600 dark:text-green-400">
-                              Cash
-                            </p>
-                            <span
-                              className={`text-lg font-bold ${
-                                Math.abs(rec.difference) < 0.01
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {rec.difference >= 0 ? "+" : ""}
-                              {formatINR(rec.difference)}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 dark:text-blue-400">
-                              UPI
-                            </p>
-                            <span
-                              className={`text-lg font-bold ${
-                                Math.abs(rec.upiDifference) < 0.01
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {rec.upiDifference >= 0 ? "+" : ""}
-                              {formatINR(rec.upiDifference)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+            {/* CASH & UPI SIDE BY SIDE */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* LEFT SIDE - CASH */}
+              <div className="space-y-6">
+                {/* Cash Flow Summary */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg border-2 border-green-200 dark:border-green-700">
+                  <h2 className="text-2xl font-bold mb-6 text-green-700">
+                    💵 Cash Flow
+                  </h2>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                      <span className="font-medium text-blue-700">
+                        💰 Opening Cash
+                      </span>
+                      <span className="text-2xl font-bold text-blue-700">
+                        {openingCash ? formatINR(parseFloat(openingCash)) : "—"}
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Cash Section */}
-                      <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400 border-l-2 border-green-400 pl-2">
-                        <p className="font-semibold text-green-700 dark:text-green-400 mb-1">
-                          💵 Cash
-                        </p>
-                        <div className="flex justify-between">
-                          <span>Opening:</span>
-                          <span className="font-medium">
-                            {formatINR(rec.openingCash)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Expected:</span>
-                          <span className="font-medium">
-                            {formatINR(rec.expectedClosingCash)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Actual:</span>
-                          <span className="font-medium">
-                            {formatINR(rec.actualClosingCash)}
-                          </span>
-                        </div>
-                        {rec.notes && (
-                          <p className="text-xs text-gray-500 mt-2 italic">
-                            &quot;{rec.notes}&quot;
-                          </p>
-                        )}
-                      </div>
-
-                      {/* UPI Section */}
-                      <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400 border-l-2 border-blue-400 pl-2">
-                        <p className="font-semibold text-blue-700 dark:text-blue-400 mb-1">
-                          📱 UPI
-                        </p>
-                        <div className="flex justify-between">
-                          <span>Opening:</span>
-                          <span className="font-medium">
-                            {formatINR(rec.openingUPI)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Expected:</span>
-                          <span className="font-medium">
-                            {formatINR(rec.expectedClosingUPI)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Actual:</span>
-                          <span className="font-medium">
-                            {formatINR(rec.actualClosingUPI)}
-                          </span>
-                        </div>
-                        {rec.upiNotes && (
-                          <p className="text-xs text-gray-500 mt-2 italic">
-                            &quot;{rec.upiNotes}&quot;
-                          </p>
-                        )}
-                      </div>
+                    <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
+                      <span className="text-green-700">+ Cash Sales</span>
+                      <span className="text-xl font-bold text-green-700">
+                        {formatINR(cashSales)}
+                      </span>
                     </div>
 
-                    {userData?.role === "admin" && (
-                      <button
-                        onClick={() => handleDelete(rec.id)}
-                        className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 mt-3"
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <div className="flex justify-between items-center p-4 bg-red-50 rounded-lg">
+                      <span className="text-red-700">− Cash Expenses</span>
+                      <span className="text-xl font-bold text-red-700">
+                        {formatINR(cashExpenses)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
+                      <span className="font-bold text-purple-700">
+                        = Expected Closing
+                      </span>
+                      <span className="text-2xl font-bold text-purple-700">
+                        {formatINR(expectedClosingCash)}
+                      </span>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Cash Reconciliation Form */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                  <h2 className="text-xl font-bold mb-4 text-green-700">
+                    Record Cash
+                  </h2>
+
+                  <div className="space-y-4">
+                    {/* Opening Cash */}
+                    <div>
+                      <label
+                        htmlFor="openingCash"
+                        className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
+                      >
+                        Opening Cash (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        id="openingCash"
+                        step="0.01"
+                        min="0"
+                        value={openingCash}
+                        onChange={(e) => setOpeningCash(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                        required
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cash in drawer at start of day
+                      </p>
+                    </div>
+
+                    {/* Actual Cash Count */}
+                    <div>
+                      <label
+                        htmlFor="actualCash"
+                        className="block text-sm font-medium mb-2"
+                      >
+                        Actual Cash Count (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        id="actualCash"
+                        step="0.01"
+                        min="0"
+                        value={actualCash}
+                        onChange={(e) => setActualCash(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700"
+                        required
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Physical cash counted in drawer
+                      </p>
+                    </div>
+
+                    {/* Cash Difference Display */}
+                    {actualCash && openingCash && (
+                      <div
+                        className={`p-4 rounded-lg border-2 ${
+                          Math.abs(cashDifference) < 0.01
+                            ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700"
+                            : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold">
+                            {Math.abs(cashDifference) < 0.01
+                              ? "✓ Perfect!"
+                              : "⚠️ Difference"}
+                          </span>
+                          <span
+                            className={`text-2xl font-bold ${
+                              Math.abs(cashDifference) < 0.01
+                                ? "text-green-700 dark:text-green-300"
+                                : "text-red-700 dark:text-red-300"
+                            }`}
+                          >
+                            {cashDifference >= 0 ? "+" : ""}
+                            {formatINR(cashDifference)}
+                          </span>
+                        </div>
+                        {Math.abs(cashDifference) >= 0.01 && (
+                          <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">
+                            {cashDifference > 0
+                              ? "Cash over - more than expected"
+                              : "Cash short - less than expected"}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Cash Notes */}
+                    <div>
+                      <label
+                        htmlFor="cashNotes"
+                        className="block text-sm font-medium mb-2"
+                      >
+                        Cash Notes (Optional)
+                      </label>
+                      <textarea
+                        id="cashNotes"
+                        value={cashNotes}
+                        onChange={(e) => setCashNotes(e.target.value)}
+                        placeholder="Any cash discrepancies..."
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700"
+                        rows={2}
+                        disabled={loading}
+                        maxLength={200}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {cashNotes.length}/200
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* RIGHT SIDE - UPI */}
+              <div className="space-y-6">
+                {/* UPI Flow Summary */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg border-2 border-blue-200 dark:border-blue-700">
+                  <h2 className="text-2xl font-bold mb-6 text-blue-700">
+                    📱 UPI Flow
+                  </h2>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                      <span className="font-medium text-blue-700">
+                        💳 Opening UPI
+                      </span>
+                      <span className="text-2xl font-bold text-blue-700">
+                        {openingUPI ? formatINR(parseFloat(openingUPI)) : "—"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
+                      <span className="text-green-700">+ UPI Sales</span>
+                      <span className="text-xl font-bold text-green-700">
+                        {formatINR(upiSales)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-4 bg-red-50 rounded-lg">
+                      <span className="text-red-700">− UPI Expenses</span>
+                      <span className="text-xl font-bold text-red-700">
+                        {formatINR(upiExpenses)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
+                      <span className="font-bold text-purple-700">
+                        = Expected Closing
+                      </span>
+                      <span className="text-2xl font-bold text-purple-700">
+                        {formatINR(expectedClosingUPI)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* UPI Reconciliation Form */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                  <h2 className="text-xl font-bold mb-4 text-blue-700">
+                    Record UPI
+                  </h2>
+
+                  <div className="space-y-4">
+                    {/* Opening UPI */}
+                    <div>
+                      <label
+                        htmlFor="openingUPI"
+                        className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
+                      >
+                        Opening UPI Balance (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        id="openingUPI"
+                        step="0.01"
+                        min="0"
+                        value={openingUPI}
+                        onChange={(e) => setOpeningUPI(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
+                        required
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        UPI balance at start of day
+                      </p>
+                    </div>
+
+                    {/* Actual UPI */}
+                    <div>
+                      <label
+                        htmlFor="actualUPI"
+                        className="block text-sm font-medium mb-2"
+                      >
+                        Actual UPI Balance (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        id="actualUPI"
+                        step="0.01"
+                        min="0"
+                        value={actualUPI}
+                        onChange={(e) => setActualUPI(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
+                        required
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Actual UPI balance verified
+                      </p>
+                    </div>
+
+                    {/* UPI Difference Display */}
+                    {actualUPI && openingUPI && (
+                      <div
+                        className={`p-4 rounded-lg border-2 ${
+                          Math.abs(upiDifference) < 0.01
+                            ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700"
+                            : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold">
+                            {Math.abs(upiDifference) < 0.01
+                              ? "✓ Perfect!"
+                              : "⚠️ Difference"}
+                          </span>
+                          <span
+                            className={`text-2xl font-bold ${
+                              Math.abs(upiDifference) < 0.01
+                                ? "text-green-700 dark:text-green-300"
+                                : "text-red-700 dark:text-red-300"
+                            }`}
+                          >
+                            {upiDifference >= 0 ? "+" : ""}
+                            {formatINR(upiDifference)}
+                          </span>
+                        </div>
+                        {Math.abs(upiDifference) >= 0.01 && (
+                          <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">
+                            {upiDifference > 0
+                              ? "UPI over - more than expected"
+                              : "UPI short - less than expected"}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* UPI Notes */}
+                    <div>
+                      <label
+                        htmlFor="upiNotes"
+                        className="block text-sm font-medium mb-2"
+                      >
+                        UPI Notes (Optional)
+                      </label>
+                      <textarea
+                        id="upiNotes"
+                        value={upiNotes}
+                        onChange={(e) => setUpiNotes(e.target.value)}
+                        placeholder="Any UPI discrepancies..."
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
+                        rows={2}
+                        disabled={loading}
+                        maxLength={200}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {upiNotes.length}/200
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button - Full Width */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+              <form onSubmit={handleSubmit}>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 rounded-md hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg shadow-lg"
+                >
+                  {loading
+                    ? "Saving..."
+                    : todayReconciliation
+                      ? "✓ Update Cash & UPI Reconciliation"
+                      : "✓ Save Cash & UPI Reconciliation"}
+                </button>
+              </form>
+            </div>
+
+            {/* History - Full Width */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+                📅 Last 7 Days
+              </h2>
+
+              {history.length === 0 ? (
+                <div className="text-center py-12 text-gray-600 dark:text-gray-400">
+                  <p className="text-4xl mb-2">📊</p>
+                  <p className="text-sm">No reconciliation history</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {history.map((rec) => (
+                    <div
+                      key={rec.id}
+                      className={`p-4 border-2 rounded-lg transition ${
+                        rec.date === selectedDate
+                          ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 dark:bg-gray-700/50"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {new Date(rec.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatTime(
+                              rec.createdAt?.toDate
+                                ? rec.createdAt.toDate()
+                                : new Date(),
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex gap-3">
+                            <div>
+                              <p className="text-xs text-green-600 dark:text-green-400">
+                                Cash
+                              </p>
+                              <span
+                                className={`text-lg font-bold ${
+                                  Math.abs(rec.difference) < 0.01
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                {rec.difference >= 0 ? "+" : ""}
+                                {formatINR(rec.difference)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-xs text-blue-600 dark:text-blue-400">
+                                UPI
+                              </p>
+                              <span
+                                className={`text-lg font-bold ${
+                                  Math.abs(rec.upiDifference) < 0.01
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                {rec.upiDifference >= 0 ? "+" : ""}
+                                {formatINR(rec.upiDifference)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Cash Section */}
+                        <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400 border-l-2 border-green-400 pl-2">
+                          <p className="font-semibold text-green-700 dark:text-green-400 mb-1">
+                            💵 Cash
+                          </p>
+                          <div className="flex justify-between">
+                            <span>Opening:</span>
+                            <span className="font-medium">
+                              {formatINR(rec.openingCash)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expected:</span>
+                            <span className="font-medium">
+                              {formatINR(rec.expectedClosingCash)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Actual:</span>
+                            <span className="font-medium">
+                              {formatINR(rec.actualClosingCash)}
+                            </span>
+                          </div>
+                          {rec.notes && (
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                              &quot;{rec.notes}&quot;
+                            </p>
+                          )}
+                        </div>
+
+                        {/* UPI Section */}
+                        <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400 border-l-2 border-blue-400 pl-2">
+                          <p className="font-semibold text-blue-700 dark:text-blue-400 mb-1">
+                            📱 UPI
+                          </p>
+                          <div className="flex justify-between">
+                            <span>Opening:</span>
+                            <span className="font-medium">
+                              {formatINR(rec.openingUPI)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expected:</span>
+                            <span className="font-medium">
+                              {formatINR(rec.expectedClosingUPI)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Actual:</span>
+                            <span className="font-medium">
+                              {formatINR(rec.actualClosingUPI)}
+                            </span>
+                          </div>
+                          {rec.upiNotes && (
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                              &quot;{rec.upiNotes}&quot;
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {userData?.role === "admin" && (
+                        <button
+                          onClick={() => handleDelete(rec.id)}
+                          className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 mt-3"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   );
