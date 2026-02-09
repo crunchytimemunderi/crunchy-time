@@ -9,6 +9,9 @@ import { useAuth } from "@/lib/auth-context";
 import { formatCurrency, formatTime, getCurrentDate } from "@/utils/formatting";
 import { validateAmount } from "@/utils/validation";
 import { formatINR } from "@/lib/currency";
+import { notifications } from "@/lib/notifications";
+import { validateCashReconciliation } from "@/lib/cash-validation";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface CashReconciliation {
   id: string;
@@ -89,6 +92,7 @@ function CashContent() {
       const { data: cashSalesData } = await supabase
         .from("sales")
         .select("amount")
+        .is("deleted_at", null)
         .eq("date", selectedDate)
         .eq("payment_method", "cash");
 
@@ -102,6 +106,7 @@ function CashContent() {
       const { data: upiSalesData } = await supabase
         .from("sales")
         .select("amount")
+        .is("deleted_at", null)
         .eq("date", selectedDate)
         .eq("payment_method", "upi");
 
@@ -115,6 +120,7 @@ function CashContent() {
       const { data: cashExpensesData } = await supabase
         .from("expenses")
         .select("amount")
+        .is("deleted_at", null)
         .eq("date", selectedDate)
         .eq("payment_mode", "cash");
 
@@ -128,6 +134,7 @@ function CashContent() {
       const { data: upiExpensesData } = await supabase
         .from("expenses")
         .select("amount")
+        .is("deleted_at", null)
         .eq("date", selectedDate)
         .eq("payment_mode", "upi");
 
@@ -153,6 +160,7 @@ function CashContent() {
             const { data: cashData } = await supabase
               .from("sales")
               .select("amount")
+              .is("deleted_at", null)
               .eq("date", selectedDate)
               .eq("payment_method", "cash");
             const cashTotal = (cashData || []).reduce(
@@ -165,6 +173,7 @@ function CashContent() {
             const { data: upiData } = await supabase
               .from("sales")
               .select("amount")
+              .is("deleted_at", null)
               .eq("date", selectedDate)
               .eq("payment_method", "upi");
             const upiTotal = (upiData || []).reduce(
@@ -191,6 +200,7 @@ function CashContent() {
             const { data: cashData } = await supabase
               .from("expenses")
               .select("amount")
+              .is("deleted_at", null)
               .eq("date", selectedDate)
               .eq("payment_mode", "cash");
             const cashTotal = (cashData || []).reduce(
@@ -203,6 +213,7 @@ function CashContent() {
             const { data: upiData } = await supabase
               .from("expenses")
               .select("amount")
+              .is("deleted_at", null)
               .eq("date", selectedDate)
               .eq("payment_mode", "upi");
             const upiTotal = (upiData || []).reduce(
@@ -395,6 +406,29 @@ function CashContent() {
     setLoading(true);
 
     try {
+      // Validate reconciliation against actual sales data
+      const validation = await validateCashReconciliation(
+        selectedDate,
+        parseFloat(actualCash),
+        parseFloat(actualUPI)
+      );
+
+      // Show validation suggestions
+      if (validation.isSignificantDifference) {
+        notifications.warning("Reconciliation Discrepancy", validation.suggestions[0], 0);
+      } else {
+        notifications.success("Validation Passed", validation.suggestions[0]);
+      }
+
+      // Show cash discrepancy notification if significant
+      if (Math.abs(validation.cashDifference) > 100) {
+        notifications.cashDiscrepancy(
+          validation.expectedCash,
+          validation.actualCash,
+          validation.cashDifference
+        );
+      }
+
       const reconciliationData = {
         date: selectedDate,
         opening_cash: parseFloat(openingCash),
@@ -426,6 +460,7 @@ function CashContent() {
 
         if (error) throw error;
         showMessage("success", "Reconciliation updated successfully!");
+        notifications.success("Updated", "Cash reconciliation updated successfully");
       } else {
         // Create new reconciliation
         const { error } = await supabase
@@ -434,6 +469,7 @@ function CashContent() {
 
         if (error) throw error;
         showMessage("success", "Reconciliation saved successfully!");
+        notifications.success("Saved", "Cash reconciliation saved successfully");
       }
     } catch (error: any) {
       console.error("Error saving reconciliation:", error);
@@ -441,6 +477,7 @@ function CashContent() {
         "error",
         error.message || "Failed to save reconciliation. Please try again.",
       );
+      notifications.error("Error", error.message || "Failed to save reconciliation");
     } finally {
       setLoading(false);
     }

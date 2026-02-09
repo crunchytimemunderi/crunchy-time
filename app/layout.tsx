@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
+import NotificationContainer from "@/components/NotificationContainer";
 
 export const metadata: Metadata = {
   title: "CRUNCHY TIME - Fried Chicken Shop Management",
@@ -14,10 +15,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <Navbar />
+          <NotificationContainer />
           <main>
             {children}
           </main>

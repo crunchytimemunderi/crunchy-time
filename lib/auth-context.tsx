@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user data from Supabase users table
   const fetchUserData = async (uid: string): Promise<UserData | null> => {
     try {
+      // Increased timeout to 30 seconds for slow connections
       const queryPromise = supabase
         .from("users")
         .select("email, username, role, display_name, custom_permissions")
@@ -60,8 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(
-          () => reject(new Error("Query timeout after 15 seconds")),
-          15000,
+          () =>
+            reject(new Error("Query timeout - Check your internet connection")),
+          30000, // 30 seconds
         ),
       );
 
@@ -88,7 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         customPermissions: data.custom_permissions as CustomPermissions | null,
       };
     } catch (error) {
-      console.error("❌ Fatal error in fetchUserData:", error);
+      if (error instanceof Error && error.message.includes("timeout")) {
+        console.error("⏰ Connection timeout - Database query took too long");
+        // Don't throw, just return null to allow offline mode
+      } else {
+        console.error("❌ Fatal error in fetchUserData:", error);
+      }
       return null;
     }
   };
@@ -97,12 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Force loading off after 20 seconds max
+    // Force loading off after 40 seconds max (increased for slow connections)
     const timeout = setTimeout(() => {
       if (mounted) {
+        console.warn("⏰ Auth loading timeout reached - proceeding anyway");
         setLoading(false);
       }
-    }, 20000);
+    }, 40000);
 
     // Get initial session
     supabase.auth

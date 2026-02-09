@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { uploadImage, compressImage } from "@/lib/image-upload";
 import { exportToCSV, formatForExport } from "@/lib/export";
+import { saveCart, loadCart, clearCart } from "@/lib/cart-storage";
+import { useKeyboardShortcuts, createShortcuts } from "@/lib/keyboard-shortcuts";
+import { notifications } from "@/lib/notifications";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Sale {
   id: string;
@@ -38,6 +42,7 @@ interface CartItem {
 function SalesContent() {
   const router = useRouter();
   const { user, userData, hasPermission, loading: authLoading } = useAuth();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [amount, setAmount] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -83,6 +88,65 @@ function SalesContent() {
     () => new Date().toISOString().split("T")[0],
   );
   const isAdmin = userData?.role === "admin";
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = loadCart();
+    if (savedCart.length > 0) {
+      setCart(savedCart);
+      const cartSubtotal = savedCart.reduce((sum, i) => sum + i.total, 0);
+      setSubtotal(cartSubtotal.toFixed(2));
+      calculateTotal(cartSubtotal.toString(), discount, additional);
+      const desc = savedCart.map((i) => `${i.name} x${i.quantity}`).join(", ");
+      setDescription(desc);
+      notifications.info("Cart Restored", `${savedCart.length} items recovered from previous session`);
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      saveCart(cart);
+    } else {
+      clearCart();
+    }
+  }, [cart]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    createShortcuts.newItem(() => {
+      setShowAddItem(true);
+    }),
+    createShortcuts.save(() => {
+      if (cart.length > 0 && amount && description) {
+        const form = document.querySelector('form');
+        if (form) {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }
+    }),
+    createShortcuts.search(() => {
+      searchInputRef.current?.focus();
+    }),
+    createShortcuts.cancel(() => {
+      if (showAddItem) {
+        setShowAddItem(false);
+      } else if (editingItem) {
+        setEditingItem(null);
+      } else if (cart.length > 0) {
+        if (confirm("Clear cart?")) {
+          setCart([]);
+          setAmount("");
+          setQuantity("1");
+          setUnitPrice("");
+          setDiscount("");
+          setAdditional("");
+          setSubtotal("");
+          setDescription("");
+        }
+      }
+    }),
+  ]);
 
   // Toggle category expansion
   const toggleCategory = (category: string) => {
@@ -193,6 +257,12 @@ function SalesContent() {
   }, [userData, hasPermission, router]);
 
   const showMessage = useCallback((type: "success" | "error", text: string) => {
+    if (type === "success") {
+      notifications.success(text);
+    } else {
+      notifications.error(text);
+    }
+    // Keep old state for backwards compatibility
     setMessageType(type);
     setMessage(text);
     setTimeout(() => setMessage(""), 4000);
@@ -204,6 +274,7 @@ function SalesContent() {
       const { data, error } = await supabase
         .from("menu_items")
         .select("*")
+        .is("deleted_at", null)
         .order("name")
         .limit(100); // Limit for faster load
 
@@ -223,6 +294,7 @@ function SalesContent() {
       const { data, error } = await supabase
         .from("sales")
         .select("*")
+        .is("deleted_at", null)
         .eq("date", selectedDate)
         .order("created_at", { ascending: false })
         .limit(50); // Limit for faster load
@@ -506,6 +578,7 @@ function SalesContent() {
         const { data, error } = await supabase
           .from("sales")
           .select("*")
+          .is("deleted_at", null)
           .gte("date", exportStartDate)
           .lte("date", exportEndDate)
           .order("created_at", { ascending: false });
@@ -528,6 +601,7 @@ function SalesContent() {
 
         exportToCSV(exportData, `sales_${exportStartDate}_to_${exportEndDate}`);
         showMessage("success", "✓ Sales exported!");
+        notifications.success("Export Complete", `${data.length} sales records exported`);
         setShowExportDateRange(false);
       } catch (error) {
         console.error("Error exporting sales:", error);
@@ -611,7 +685,10 @@ function SalesContent() {
       }
 
       showMessage("success", `✓ ₹${amount} sale saved!`);
+      notifications.success("Sale Saved", `₹${amount} recorded successfully`);
       setCart([]);
+      clearCart(); // Clear localStorage
+      setAmount("");
       setAmount("");
       setQuantity("1");
       setUnitPrice("");
@@ -670,16 +747,7 @@ function SalesContent() {
   // Only show loading on initial mount (when there's no user yet)
   // If user exists, show page even during auth checks
   if (authLoading && !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mx-auto mb-4"></div>
-          <p className="text-slate-300 text-lg font-medium animate-pulse">
-            Loading authentication...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner size="lg" text="Loading sales..." fullScreen />;
   }
 
   if (!user) {
@@ -1372,6 +1440,7 @@ function SalesContent() {
           {/* Search and Filter */}
           <div className="mb-3 space-y-2">
             <input
+              ref={searchInputRef}
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { exportToCSV, formatForExport } from "@/lib/export";
+import { notifications } from "@/lib/notifications";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Expense {
   id: string;
@@ -91,6 +93,11 @@ function ExpensesContent() {
   }, [userData, hasPermission, router]);
 
   const showMessage = useCallback((type: "success" | "error", text: string) => {
+    if (type === "success") {
+      notifications.success(text);
+    } else {
+      notifications.error(text);
+    }
     setMessageType(type);
     setMessage(text);
     setTimeout(() => setMessage(""), 4000);
@@ -101,6 +108,7 @@ function ExpensesContent() {
       const { data, error } = await supabase
         .from("expenses")
         .select("*")
+        .is("deleted_at", null)
         .eq("date", selectedDate)
         .order("created_at", { ascending: false });
 
@@ -181,9 +189,10 @@ function ExpensesContent() {
         const { data, error } = await supabase
           .from("expenses")
           .select("*")
+          .is("deleted_at", null)
           .gte("date", exportStartDate)
           .lte("date", exportEndDate)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false});
 
         if (error) throw error;
         
