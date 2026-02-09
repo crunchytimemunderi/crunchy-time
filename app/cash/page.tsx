@@ -321,6 +321,26 @@ function CashContent() {
         
         setTodayReconciliation(selectedDateRec || null);
 
+        // ALWAYS fetch previous day's closing balance for validation/auto-fill
+        const previousDate = new Date(selectedDate + 'T00:00:00');
+        previousDate.setDate(previousDate.getDate() - 1);
+        const prevDateStr = previousDate.toISOString().split("T")[0];
+        console.log(`🔍 Fetching previous day (${prevDateStr}) for opening balance validation...`);
+
+        const { data: prevData, error: prevError } = await supabase
+          .from("cash_reconciliation")
+          .select("actual_closing_cash, actual_closing_upi, date")
+          .eq("date", prevDateStr)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        console.log(`📦 Previous day (${prevDateStr}) result:`, { 
+          found: !!prevData, 
+          cash: prevData?.actual_closing_cash, 
+          upi: prevData?.actual_closing_upi,
+          error: prevError 
+        });
+
         // If selected date's reconciliation exists, populate form with SAVED data
         if (selectedDateRec) {
           console.log(`✅ Loading SAVED data for ${selectedDate}:`);
@@ -329,40 +349,48 @@ function CashContent() {
           console.log(`   Opening UPI: ${selectedDateRec.openingUPI}`);
           console.log(`   Actual Closing UPI: ${selectedDateRec.actualClosingUPI}`);
           
-          setOpeningCash(selectedDateRec.openingCash.toString());
+          // Verify if opening balance matches previous day's closing
+          if (prevData && !prevError) {
+            const cashMatches = selectedDateRec.openingCash === prevData.actual_closing_cash;
+            const upiMatches = selectedDateRec.openingUPI === prevData.actual_closing_upi;
+            
+            if (!cashMatches || !upiMatches) {
+              console.warn(`⚠️ MISMATCH DETECTED between saved opening and previous closing:`);
+              console.warn(`   Cash: Saved=${selectedDateRec.openingCash}, Prev=${prevData.actual_closing_cash} ${cashMatches ? '✅' : '❌'}`);
+              console.warn(`   UPI: Saved=${selectedDateRec.openingUPI}, Prev=${prevData.actual_closing_upi} ${upiMatches ? '✅' : '❌'}`);
+              console.warn(`   👉 AUTO-CORRECTING to use previous day's closing balance`);
+              
+              // Auto-correct to use previous day's closing
+              setOpeningCash(prevData.actual_closing_cash.toString());
+              setOpeningUPI(prevData.actual_closing_upi.toString());
+              setOpeningCashEditable(false); // Read-only since auto-corrected
+              setOpeningUPIEditable(false);
+            } else {
+              console.log(`✅ Opening balances match previous day's closing - all good!`);
+              setOpeningCash(selectedDateRec.openingCash.toString());
+              setOpeningUPI(selectedDateRec.openingUPI.toString());
+              setOpeningCashEditable(true);
+              setOpeningUPIEditable(true);
+            }
+          } else {
+            // No previous day data, use saved opening as-is
+            console.log(`ℹ️ No previous day data found, using saved opening balances`);
+            setOpeningCash(selectedDateRec.openingCash.toString());
+            setOpeningUPI(selectedDateRec.openingUPI.toString());
+            setOpeningCashEditable(true);
+            setOpeningUPIEditable(true);
+          }
+          
           setActualCash(selectedDateRec.actualClosingCash.toString());
           setCashNotes(selectedDateRec.notes || "");
-          setOpeningUPI(selectedDateRec.openingUPI.toString());
           setActualUPI(selectedDateRec.actualClosingUPI.toString());
           setUpiNotes(selectedDateRec.upiNotes || "");
           
-          // Allow editing of saved data (it was manually entered)
-          setOpeningCashEditable(true);
-          setOpeningUPIEditable(true);
-          
-          console.log(`✅ Form populated with saved reconciliation data (editable)`);
+          console.log(`✅ Form populated with saved reconciliation data`);
         } else {
           console.log(`� No existing data for ${selectedDate}, fetching PREVIOUS day's closing...`);
-          // Fetch previous day's closing balance to use as opening balance
-          const previousDate = new Date(selectedDate + 'T00:00:00');
-          previousDate.setDate(previousDate.getDate() - 1);
-          const prevDateStr = previousDate.toISOString().split("T")[0];
-          console.log(`🔍 Looking for previous date: ${prevDateStr}`);
-
-          const { data: prevData, error: prevError } = await supabase
-            .from("cash_reconciliation")
-            .select("actual_closing_cash, actual_closing_upi, date")
-            .eq("date", prevDateStr)
-            .is("deleted_at", null)
-            .maybeSingle();
-
-          console.log(`📦 Previous day (${prevDateStr}) query result:`, { 
-            found: !!prevData, 
-            cash: prevData?.actual_closing_cash, 
-            upi: prevData?.actual_closing_upi,
-            error: prevError 
-          });
-
+          console.log(`📦 No existing data for ${selectedDate}, using previous day's closing as opening...`);
+          
           if (prevData && !prevError) {
             console.log(`✅ Using previous day's CLOSING as today's OPENING:`);
             console.log(`   Previous Closing Cash (${prevDateStr}): ${prevData.actual_closing_cash} → Opening Cash (${selectedDate})`);
