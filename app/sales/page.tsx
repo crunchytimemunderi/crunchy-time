@@ -20,6 +20,7 @@ interface MenuItem {
   id: string;
   name: string;
   price: number;
+  category?: string;
   image_url?: string;
   created_at: string;
 }
@@ -50,10 +51,12 @@ function SalesContent() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
+  const [newItemCategory, setNewItemCategory] = useState("Main Dishes");
   const [newItemImage, setNewItemImage] = useState("");
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [editCategory, setEditCategory] = useState("");
   const [editImage, setEditImage] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">(
@@ -64,6 +67,19 @@ function SalesContent() {
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
   const [selectedDate, setSelectedDate] = useState(today);
   const isAdmin = userData?.role === "admin";
+
+  // Group menu items by category
+  const groupedMenuItems = useMemo(() => {
+    const groups: Record<string, MenuItem[]> = {};
+    menuItems.forEach((item) => {
+      const category = item.category || "Main Dishes";
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(item);
+    });
+    return groups;
+  }, [menuItems]);
 
   // Check permission - Only users with canAddSales permission can access
   useEffect(() => {
@@ -211,6 +227,7 @@ function SalesContent() {
           {
             name: newItemName.trim(),
             price: parseFloat(newItemPrice),
+            category: newItemCategory,
             image_url: newItemImage.trim() || null,
           },
         ])
@@ -225,6 +242,7 @@ function SalesContent() {
       showMessage("success", `✓ ${newItemName} added to menu!`);
       setNewItemName("");
       setNewItemPrice("");
+      setNewItemCategory("Main Dishes");
       setNewItemImage("");
       setShowAddItem(false);
       await fetchMenuItems();
@@ -250,6 +268,7 @@ function SalesContent() {
         .update({
           name: editName.trim(),
           price: parseFloat(editPrice),
+          category: editCategory,
           image_url: editImage.trim() || null,
         })
         .eq("id", editingItem.id);
@@ -260,6 +279,7 @@ function SalesContent() {
       setEditingItem(null);
       setEditName("");
       setEditPrice("");
+      setEditCategory("");
       setEditImage("");
       await fetchMenuItems();
     } catch (error) {
@@ -291,6 +311,7 @@ function SalesContent() {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price.toString());
+    setEditCategory(item.category || "Main Dishes");
     setEditImage(item.image_url || "");
   };
 
@@ -521,6 +542,17 @@ function SalesContent() {
                       className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
+                  <select
+                    value={newItemCategory}
+                    onChange={(e) => setNewItemCategory(e.target.value)}
+                    className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none mb-2"
+                  >
+                    <option value="Main Dishes">Main Dishes</option>
+                    <option value="Sides">Sides</option>
+                    <option value="Beverages">Beverages</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Specials">Specials</option>
+                  </select>
                   <input
                     type="text"
                     value={newItemImage}
@@ -570,6 +602,17 @@ function SalesContent() {
                       className="p-2 border rounded-md text-sm text-gray-900"
                     />
                   </div>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full p-2 border rounded-md text-sm text-gray-900 mb-2"
+                  >
+                    <option value="Main Dishes">Main Dishes</option>
+                    <option value="Sides">Sides</option>
+                    <option value="Beverages">Beverages</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Specials">Specials</option>
+                  </select>
                   <input
                     type="text"
                     value={editImage}
@@ -588,65 +631,74 @@ function SalesContent() {
               )}
 
               {/* Menu Items Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div>
                 {menuItems.length === 0 ? (
-                  <div className="col-span-2 md:col-span-4 text-center text-gray-500 py-4">
+                  <div className="text-center text-gray-500 py-4">
                     No menu items yet. Click &quot;+ New&quot; to add items.
                   </div>
                 ) : (
-                  menuItems.map((item) => (
-                    <div key={item.id} className="relative">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectItem(item)}
-                        className={`w-full p-3 rounded-lg border-2 transition-all ${
-                          selectedItem === item.name
-                            ? "bg-red-600 text-white border-red-700"
-                            : "bg-white text-gray-900 border-gray-300 hover:border-red-500"
-                        }`}
-                      >
-                        {item.image_url ? (
-                          <div className="w-full h-16 mb-1 flex items-center justify-center">
-                            <img
-                              src={item.image_url}
-                              alt={item.name}
-                              className="max-w-full max-h-full object-contain rounded"
-                            />
+                  Object.entries(groupedMenuItems).map(([category, items]) => (
+                    <div key={category} className="mb-4">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2 border-b-2 border-red-600 pb-1">
+                        {category}
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {items.map((item) => (
+                          <div key={item.id} className="relative">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectItem(item)}
+                              className={`w-full p-3 rounded-lg border-2 transition-all ${
+                                selectedItem === item.name
+                                  ? "bg-red-600 text-white border-red-700"
+                                  : "bg-white text-gray-900 border-gray-300 hover:border-red-500"
+                              }`}
+                            >
+                              {item.image_url ? (
+                                <div className="w-full h-16 mb-1 flex items-center justify-center">
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.name}
+                                    className="max-w-full max-h-full object-contain rounded"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="text-2xl mb-1">🍗</div>
+                              )}
+                              <div className="font-bold text-sm">{item.name}</div>
+                              <div className="text-base font-bold mt-1">
+                                ₹{item.price}
+                              </div>
+                            </button>
+                            {userData?.role === "admin" && (
+                              <div className="absolute top-1 right-1 flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditItem(item);
+                                  }}
+                                  className="bg-blue-600 text-white rounded-full w-6 h-6 text-xs hover:bg-blue-700"
+                                  title="Edit"
+                                >
+                                  ✎
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteMenuItem(item);
+                                  }}
+                                  className="bg-red-600 text-white rounded-full w-6 h-6 text-xs hover:bg-red-700"
+                                  title="Delete"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="text-2xl mb-1">🍗</div>
-                        )}
-                        <div className="font-bold text-sm">{item.name}</div>
-                        <div className="text-base font-bold mt-1">
-                          ₹{item.price}
-                        </div>
-                      </button>
-                      {userData?.role === "admin" && (
-                        <div className="absolute top-1 right-1 flex gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditItem(item);
-                            }}
-                            className="bg-blue-600 text-white rounded-full w-6 h-6 text-xs hover:bg-blue-700"
-                            title="Edit"
-                          >
-                            ✎
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteMenuItem(item);
-                            }}
-                            className="bg-red-600 text-white rounded-full w-6 h-6 text-xs hover:bg-red-700"
-                            title="Delete"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
                   ))
                 )}

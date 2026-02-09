@@ -1,7 +1,7 @@
 -- =====================================================
--- ADD IMAGE SUPPORT TO MENU ITEMS
+-- ADD IMAGE SUPPORT AND CATEGORIES TO MENU ITEMS
 -- =====================================================
--- This adds an image_url column to store menu item images
+-- This adds an image_url column and category column to menu items
 -- Run this in Supabase SQL Editor
 -- =====================================================
 
@@ -9,5 +9,10 @@
 ALTER TABLE public.menu_items 
 ADD COLUMN IF NOT EXISTS image_url TEXT;
 
--- Add comment to describe the column
+-- Add category column to menu_items table
+ALTER TABLE public.menu_items 
+ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Main Dishes';
+
+-- Add comments to describe the columns
 COMMENT ON COLUMN public.menu_items.image_url IS 'URL or path to the menu item image';
+COMMENT ON COLUMN public.menu_items.category IS 'Category group for organizing menu items (e.g., Main Dishes, Sides, Beverages)';
