@@ -25,7 +25,7 @@ export default function NotificationContainer() {
         <NotificationToast
           key={notification.id}
           notification={notification}
-          onClose={removeNotification}
+          onCloseAction={removeNotification}
         />
       ))}
     </div>

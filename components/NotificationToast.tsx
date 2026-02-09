@@ -12,21 +12,21 @@ export interface Notification {
 
 interface NotificationToastProps {
   notification: Notification;
-  onClose: (id: string) => void;
+  onCloseAction: (id: string) => void;
 }
 
 export default function NotificationToast({
   notification,
-  onClose,
+  onCloseAction,
 }: NotificationToastProps) {
   const { id, type, title, message, duration = 5000 } = notification;
 
   useEffect(() => {
     if (duration > 0) {
-      const timer = setTimeout(() => onClose(id), duration);
+      const timer = setTimeout(() => onCloseAction(id), duration);
       return () => clearTimeout(timer);
     }
-  }, [id, duration, onClose]);
+  }, [id, duration, onCloseAction]);
 
   const typeStyles = {
     success: "bg-green-600 border-green-700",
@@ -55,7 +55,7 @@ export default function NotificationToast({
           </div>
         </div>
         <button
-          onClick={() => onClose(id)}
+          onClick={() => onCloseAction(id)}
           className="text-white hover:opacity-80 text-xl leading-none"
         >
           ×
