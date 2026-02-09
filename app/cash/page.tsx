@@ -38,7 +38,7 @@ interface CashReconciliation {
 
 function CashContent() {
   const router = useRouter();
-  const { user, userData, hasPermission } = useAuth();
+  const { user, userData, hasPermission, loading: authLoading } = useAuth();
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
 
   // Cash fields
@@ -68,10 +68,11 @@ function CashContent() {
 
   // Check permission - Cash reconciliation is admin only
   useEffect(() => {
-    if (userData && userData.role !== "admin") {
+    // Wait for auth to finish loading before checking permissions
+    if (!authLoading && userData && userData.role !== "admin") {
       router.push("/dashboard");
     }
-  }, [userData, router]);
+  }, [userData, router, authLoading]);
 
   // Cash calculations
   const expectedClosingCash =
@@ -247,6 +248,7 @@ function CashContent() {
       const { data, error } = await supabase
         .from("cash_reconciliation")
         .select("*")
+        .is("deleted_at", null)
         .gte("date", sevenDaysAgoStr)
         .order("date", { ascending: false });
 
@@ -471,6 +473,44 @@ function CashContent() {
         showMessage("success", "Reconciliation saved successfully!");
         notifications.success("Saved", "Cash reconciliation saved successfully");
       }
+      
+      // Refetch history to show the new/updated entry
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+      
+      const { data: historyData } = await supabase
+        .from("cash_reconciliation")
+        .select("*")
+        .is("deleted_at", null)
+        .gte("date", sevenDaysAgoStr)
+        .order("date", { ascending: false });
+        
+      if (historyData) {
+        const reconciliations = historyData.map((r) => ({
+          id: r.id,
+          date: r.date,
+          openingCash: r.opening_cash,
+          cashSales: r.cash_sales,
+          cashExpenses: r.cash_expenses,
+          expectedClosingCash: r.expected_closing_cash,
+          actualClosingCash: r.actual_closing_cash,
+          difference: r.difference,
+          notes: r.notes,
+          openingUPI: r.opening_upi,
+          upiSales: r.upi_sales,
+          upiExpenses: r.upi_expenses,
+          expectedClosingUPI: r.expected_closing_upi,
+          actualClosingUPI: r.actual_closing_upi,
+          upiDifference: r.upi_difference,
+          upiNotes: r.upi_notes,
+          createdAt: r.created_at,
+          createdBy: r.created_by,
+          createdByName: r.created_by_name,
+        }));
+        setHistory(reconciliations);
+        setTodayReconciliation(reconciliations.find((r) => r.date === selectedDate) || null);
+      }
     } catch (error: any) {
       console.error("Error saving reconciliation:", error);
       showMessage(
@@ -520,6 +560,11 @@ function CashContent() {
 
   return (
     <div className="min-h-screen p-4 md:p-8 bg-gray-50 dark:bg-gray-900">
+      {authLoading ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : (
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
@@ -1072,6 +1117,7 @@ function CashContent() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
