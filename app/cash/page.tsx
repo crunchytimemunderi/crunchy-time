@@ -267,12 +267,14 @@ function CashContent() {
   useEffect(() => {
     if (!user || authLoading || !selectedDate) return;
 
-    console.log(`🔄 Date changed to: ${selectedDate}, fetching history...`);
+    console.log(`🔄 Date changed to: ${selectedDate}, fetching history and form data...`);
 
     const fetchAndSubscribe = async () => {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+
+      console.log(`📅 Fetching reconciliation history from ${sevenDaysAgoStr} to now...`);
 
       // Fetch initial data
       const { data, error } = await supabase
@@ -283,8 +285,9 @@ function CashContent() {
         .order("date", { ascending: false });
 
       if (error) {
-        console.error("Error fetching reconciliation history:", error);
+        console.error("❌ Error fetching reconciliation history:", error);
       } else {
+        console.log(`✅ Fetched ${data?.length || 0} reconciliation records`);
         const reconciliations = (data || []).map((r) => ({
           id: r.id,
           date: r.date,
@@ -310,20 +313,30 @@ function CashContent() {
 
         // Check if selected date's reconciliation exists
         const selectedDateRec = reconciliations.find((r) => r.date === selectedDate);
-        console.log(`📊 History loaded: ${reconciliations.length} records, Selected date (${selectedDate}):`, selectedDateRec ? 'FOUND' : 'NOT FOUND');
+        console.log(`� Searching for date ${selectedDate} in history...`);
+        console.log(`📊 History dates:`, reconciliations.map(r => r.date).join(", "));
+        console.log(`📊 Selected date (${selectedDate}):`, selectedDateRec ? '✅ FOUND' : '❌ NOT FOUND');
+        
         setTodayReconciliation(selectedDateRec || null);
 
-        // If selected date's reconciliation exists, populate form
+        // If selected date's reconciliation exists, populate form with SAVED data
         if (selectedDateRec) {
-          console.log(`✅ Populating form with saved data for ${selectedDate}`);
+          console.log(`✅ Loading SAVED data for ${selectedDate}:`);
+          console.log(`   Opening Cash: ${selectedDateRec.openingCash}`);
+          console.log(`   Actual Closing Cash: ${selectedDateRec.actualClosingCash}`);
+          console.log(`   Opening UPI: ${selectedDateRec.openingUPI}`);
+          console.log(`   Actual Closing UPI: ${selectedDateRec.actualClosingUPI}`);
+          
           setOpeningCash(selectedDateRec.openingCash.toString());
           setActualCash(selectedDateRec.actualClosingCash.toString());
           setCashNotes(selectedDateRec.notes || "");
           setOpeningUPI(selectedDateRec.openingUPI.toString());
           setActualUPI(selectedDateRec.actualClosingUPI.toString());
           setUpiNotes(selectedDateRec.upiNotes || "");
+          
+          console.log(`✅ Form populated with saved reconciliation data`);
         } else {
-          console.log(`📝 No existing data for ${selectedDate}, fetching previous day's closing...`);
+          console.log(`� No existing data for ${selectedDate}, fetching PREVIOUS day's closing...`);
           // Fetch previous day's closing balance to use as opening balance
           const previousDate = new Date(selectedDate + 'T00:00:00');
           previousDate.setDate(previousDate.getDate() - 1);
@@ -337,20 +350,32 @@ function CashContent() {
             .is("deleted_at", null)
             .maybeSingle();
 
-          console.log(`📦 Previous day query result:`, { prevData, prevError });
+          console.log(`📦 Previous day (${prevDateStr}) query result:`, { 
+            found: !!prevData, 
+            cash: prevData?.actual_closing_cash, 
+            upi: prevData?.actual_closing_upi,
+            error: prevError 
+          });
 
           if (prevData && !prevError) {
-            console.log(`📅 Using previous day's closing: Cash=${prevData.actual_closing_cash}, UPI=${prevData.actual_closing_upi}`);
+            console.log(`✅ Using previous day's CLOSING as today's OPENING:`);
+            console.log(`   Previous Closing Cash (${prevDateStr}): ${prevData.actual_closing_cash} → Opening Cash (${selectedDate})`);
+            console.log(`   Previous Closing UPI (${prevDateStr}): ${prevData.actual_closing_upi} → Opening UPI (${selectedDate})`);
+            
             setOpeningCash(prevData.actual_closing_cash.toString());
             setOpeningUPI(prevData.actual_closing_upi.toString());
-            console.log(`✅ Set opening balances from previous day`);
+            console.log(`✅ Set opening balances from previous day's closing`);
+            
             // Clear actual and notes for new entry
             setActualCash("");
             setCashNotes("");
             setActualUPI("");
             setUpiNotes("");
+            console.log(`🆕 Cleared actual cash/UPI and notes for new entry`);
           } else {
-            console.log(`🆕 No previous data found for ${prevDateStr}`, prevError);
+            console.log(`🆕 No previous data found for ${prevDateStr}, starting fresh with empty fields`);
+            if (prevError) console.error("❌ Previous day query error:", prevError);
+            
             // Clear all fields for fresh start
             setOpeningCash("");
             setActualCash("");
@@ -401,23 +426,26 @@ function CashContent() {
               createdBy: r.created_by,
               createdByName: r.created_by_name,
             }));
-            console.log(`🔔 Realtime update: ${reconciliations.length} records in history`);
+            console.log(`🔔 Realtime update received: ${reconciliations.length} records in history`);
             setHistory(reconciliations);
 
             const selectedDateRec = reconciliations.find(
               (r) => r.date === selectedDate,
             );
+            console.log(`🔔 Realtime: Current selected date is ${selectedDate}, found in updated history:`, !!selectedDateRec);
             setTodayReconciliation(selectedDateRec || null);
             
-            // Update form if this is the currently selected date
+            // Update form ONLY if data exists for currently selected date
             if (selectedDateRec) {
-              console.log(`🔄 Realtime: Updating form for ${selectedDate}`);
+              console.log(`🔄 Realtime: Updating form for ${selectedDate} with saved data`);
               setOpeningCash(selectedDateRec.openingCash.toString());
               setActualCash(selectedDateRec.actualClosingCash.toString());
               setCashNotes(selectedDateRec.notes || "");
               setOpeningUPI(selectedDateRec.openingUPI.toString());
               setActualUPI(selectedDateRec.actualClosingUPI.toString());
               setUpiNotes(selectedDateRec.upiNotes || "");
+            } else {
+              console.log(`🔔 Realtime: No data for ${selectedDate} in realtime update, keeping current form state`);
             }
           },
         )
@@ -580,6 +608,7 @@ function CashContent() {
         .order("date", { ascending: false });
         
       if (historyData) {
+        console.log(`💾 Refetched ${historyData.length} records after save`);
         const reconciliations = historyData.map((r) => ({
           id: r.id,
           date: r.date,
@@ -603,7 +632,16 @@ function CashContent() {
         }));
         setHistory(reconciliations);
         const updatedRec = reconciliations.find((r) => r.date === selectedDate) || null;
-        console.log(`✅ After save - History: ${reconciliations.length} records, Current date (${selectedDate}):`, updatedRec ? 'SAVED' : 'ERROR');
+        console.log(`📊 After save - Dates in history:`, reconciliations.map(r => r.date).join(\", \"));
+        console.log(`✅ After save - Current date (${selectedDate}):`, updatedRec ? '✅ FOUND & SAVED' : '❌ ERROR - NOT FOUND');
+        
+        if (updatedRec) {
+          console.log(`   Saved Opening Cash: ${updatedRec.openingCash}`);
+          console.log(`   Saved Actual Closing Cash: ${updatedRec.actualClosingCash}`);
+          console.log(`   Saved Opening UPI: ${updatedRec.openingUPI}`);
+          console.log(`   Saved Actual Closing UPI: ${updatedRec.actualClosingUPI}`);
+        }
+        
         setTodayReconciliation(updatedRec);
         
         // Populate form with saved data to show it persists
