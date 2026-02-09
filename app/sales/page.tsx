@@ -8,7 +8,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { uploadImage, compressImage } from "@/lib/image-upload";
 import { exportToCSV, formatForExport } from "@/lib/export";
 import { saveCart, loadCart, clearCart } from "@/lib/cart-storage";
-import { useKeyboardShortcuts, createShortcuts } from "@/lib/keyboard-shortcuts";
+import {
+  useKeyboardShortcuts,
+  createShortcuts,
+} from "@/lib/keyboard-shortcuts";
 import { notifications } from "@/lib/notifications";
 import { getCurrentDate } from "@/utils/formatting";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -83,7 +86,9 @@ function SalesContent() {
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
   const [showExportDateRange, setShowExportDateRange] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
@@ -98,7 +103,10 @@ function SalesContent() {
       calculateTotal(cartSubtotal.toString(), discount, additional);
       const desc = savedCart.map((i) => `${i.name} x${i.quantity}`).join(", ");
       setDescription(desc);
-      notifications.info("Cart Restored", `${savedCart.length} items recovered from previous session`);
+      notifications.info(
+        "Cart Restored",
+        `${savedCart.length} items recovered from previous session`,
+      );
     }
   }, []);
 
@@ -118,9 +126,11 @@ function SalesContent() {
     }),
     createShortcuts.save(() => {
       if (cart.length > 0 && amount && description) {
-        const form = document.querySelector('form');
+        const form = document.querySelector("form");
         if (form) {
-          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+          form.dispatchEvent(
+            new Event("submit", { cancelable: true, bubbles: true }),
+          );
         }
       }
     }),
@@ -193,7 +203,9 @@ function SalesContent() {
 
       // Category filter - check if sale description includes items from selected category
       if (filterCategory !== "all") {
-        const categoryMatch = sale.description.toLowerCase().includes(filterCategory.toLowerCase());
+        const categoryMatch = sale.description
+          .toLowerCase()
+          .includes(filterCategory.toLowerCase());
         if (!categoryMatch) {
           return false;
         }
@@ -241,7 +253,10 @@ function SalesContent() {
         }
       });
       // If no categories from recent items, expand the first category
-      if (categoriesToExpand.size === 0 && Object.keys(groupedMenuItems).length > 0) {
+      if (
+        categoriesToExpand.size === 0 &&
+        Object.keys(groupedMenuItems).length > 0
+      ) {
         categoriesToExpand.add(Object.keys(groupedMenuItems)[0]);
       }
       setExpandedCategories(categoriesToExpand);
@@ -250,20 +265,24 @@ function SalesContent() {
 
   // Check permission - Only users with canAddSales permission can access
   useEffect(() => {
-    console.log(`🔐 Sales page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`);
-    
+    console.log(
+      `🔐 Sales page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`,
+    );
+
     // Wait for auth to finish loading
     if (authLoading) {
       console.log("⏳ Auth still loading, waiting...");
       return;
     }
-    
+
     // If user exists but userData not loaded yet, wait
     if (user && !userData) {
-      console.warn("⚠️ userData is null but user exists - waiting for userData to load");
+      console.warn(
+        "⚠️ userData is null but user exists - waiting for userData to load",
+      );
       return;
     }
-    
+
     // Now check permission only if userData is available
     if (userData && !hasPermission("canAddSales")) {
       console.log("❌ No canAddSales permission - redirecting to dashboard");
@@ -461,7 +480,12 @@ function SalesContent() {
   };
 
   const handleAddMenuItem = async () => {
-    if (!newItemName.trim() || newItemPrice.trim() === "" || isNaN(parseFloat(newItemPrice)) || parseFloat(newItemPrice) < 0) {
+    if (
+      !newItemName.trim() ||
+      newItemPrice.trim() === "" ||
+      isNaN(parseFloat(newItemPrice)) ||
+      parseFloat(newItemPrice) < 0
+    ) {
       showMessage("error", "Enter item name and valid price (0 or more)");
       return;
     }
@@ -501,8 +525,10 @@ function SalesContent() {
       setNewItemImage("");
       setShowAddItem(false);
       await fetchMenuItems();
-    } catch (error) {
-      showMessage("error", "Failed to add item");
+    } catch (error: any) {
+      console.error("❌ Failed to add menu item:", error);
+      const errorMsg = error?.message || error?.hint || JSON.stringify(error);
+      showMessage("error", `Failed to add item: ${errorMsg}`);
     }
   };
 
@@ -542,9 +568,10 @@ function SalesContent() {
       setEditCustomCategory("");
       setEditImage("");
       await fetchMenuItems();
-    } catch (error) {
-      console.error("Error updating menu item:", error);
-      showMessage("error", "Failed to update item");
+    } catch (error: any) {
+      console.error("❌ Failed to update menu item:", error);
+      const errorMsg = error?.message || error?.hint || JSON.stringify(error);
+      showMessage("error", `Failed to update item: ${errorMsg}`);
     }
   };
 
@@ -602,7 +629,7 @@ function SalesContent() {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        
+
         if (!data || data.length === 0) {
           showMessage("error", "No sales data in selected date range");
           return;
@@ -619,7 +646,10 @@ function SalesContent() {
 
         exportToCSV(exportData, `sales_${exportStartDate}_to_${exportEndDate}`);
         showMessage("success", "✓ Sales exported!");
-        notifications.success("Export Complete", `${data.length} sales records exported`);
+        notifications.success(
+          "Export Complete",
+          `${data.length} sales records exported`,
+        );
         setShowExportDateRange(false);
       } catch (error) {
         console.error("Error exporting sales:", error);
@@ -649,7 +679,11 @@ function SalesContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (amount.trim() === "" || isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
+    if (
+      amount.trim() === "" ||
+      isNaN(parseFloat(amount)) ||
+      parseFloat(amount) < 0
+    ) {
       showMessage("error", "₹ Please enter valid amount (0 or more)");
       return;
     }
@@ -1116,7 +1150,10 @@ function SalesContent() {
                   Object.entries(groupedMenuItems).map(([category, items]) => {
                     const isExpanded = expandedCategories.has(category);
                     return (
-                      <div key={category} className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+                      <div
+                        key={category}
+                        className="mb-3 border border-gray-200 rounded-lg overflow-hidden"
+                      >
                         {/* Category Header - Clickable */}
                         <button
                           type="button"
@@ -1139,61 +1176,61 @@ function SalesContent() {
                           <div className="p-3 bg-white">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                               {items.map((item) => (
-                          <div key={item.id} className="relative">
-                            <button
-                              type="button"
-                              onClick={() => handleSelectItem(item)}
-                              className={`w-full p-3 rounded-lg border-2 transition-all ${
-                                selectedItem === item.name
-                                  ? "bg-red-600 text-white border-red-700"
-                                  : "bg-white text-gray-900 border-gray-300 hover:border-red-500"
-                              }`}
-                            >
-                              {item.image_url ? (
-                                <div className="w-full h-16 mb-1 flex items-center justify-center">
-                                  <img
-                                    src={item.image_url}
-                                    alt={item.name}
-                                    className="max-w-full max-h-full object-contain rounded"
-                                  />
+                                <div key={item.id} className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectItem(item)}
+                                    className={`w-full p-3 rounded-lg border-2 transition-all ${
+                                      selectedItem === item.name
+                                        ? "bg-red-600 text-white border-red-700"
+                                        : "bg-white text-gray-900 border-gray-300 hover:border-red-500"
+                                    }`}
+                                  >
+                                    {item.image_url ? (
+                                      <div className="w-full h-16 mb-1 flex items-center justify-center">
+                                        <img
+                                          src={item.image_url}
+                                          alt={item.name}
+                                          className="max-w-full max-h-full object-contain rounded"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="text-2xl mb-1">🍗</div>
+                                    )}
+                                    <div className="font-bold text-sm">
+                                      {item.name}
+                                    </div>
+                                    <div className="text-base font-bold mt-1">
+                                      ₹{item.price}
+                                    </div>
+                                  </button>
+                                  {userData?.role === "admin" && (
+                                    <div className="absolute top-1 right-1 flex gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditItem(item);
+                                        }}
+                                        className="bg-blue-600 text-white rounded-full w-6 h-6 text-xs hover:bg-blue-700"
+                                        title="Edit"
+                                      >
+                                        ✎
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteMenuItem(item);
+                                        }}
+                                        className="bg-red-600 text-white rounded-full w-6 h-6 text-xs hover:bg-red-700"
+                                        title="Delete"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="text-2xl mb-1">🍗</div>
-                              )}
-                              <div className="font-bold text-sm">
-                                {item.name}
-                              </div>
-                              <div className="text-base font-bold mt-1">
-                                ₹{item.price}
-                              </div>
-                            </button>
-                            {userData?.role === "admin" && (
-                              <div className="absolute top-1 right-1 flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startEditItem(item);
-                                  }}
-                                  className="bg-blue-600 text-white rounded-full w-6 h-6 text-xs hover:bg-blue-700"
-                                  title="Edit"
-                                >
-                                  ✎
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteMenuItem(item);
-                                  }}
-                                  className="bg-red-600 text-white rounded-full w-6 h-6 text-xs hover:bg-red-700"
-                                  title="Delete"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            )}
-                          </div>
                               ))}
                             </div>
                           </div>
@@ -1465,7 +1502,7 @@ function SalesContent() {
               placeholder="🔍 Search by description, amount, or user..."
               className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
             />
-            
+
             {/* Category Filter */}
             <div className="flex gap-2">
               <select
