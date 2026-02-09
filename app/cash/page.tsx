@@ -453,12 +453,21 @@ function CashContent() {
         created_by_name: userData!.displayName,
       };
 
-      if (todayReconciliation) {
+      // Check if record exists for this date (double-check to prevent duplicates)
+      const { data: existingRec } = await supabase
+        .from("cash_reconciliation")
+        .select("id")
+        .eq("date", selectedDate)
+        .is("deleted_at", null)
+        .single();
+
+      if (existingRec || todayReconciliation) {
         // Update existing reconciliation
+        const recordId = existingRec?.id || todayReconciliation?.id;
         const { error } = await supabase
           .from("cash_reconciliation")
           .update(reconciliationData)
-          .eq("id", todayReconciliation.id);
+          .eq("id", recordId);
 
         if (error) throw error;
         showMessage("success", "Reconciliation updated successfully!");

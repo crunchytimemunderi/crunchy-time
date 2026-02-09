@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
-        console.error("⏰ Connection timeout - Database query took too long");
+        console.warn("⏰ Database connection slow - This is expected on slower networks. App will continue to work.");
         // Don't throw, just return null to allow offline mode
       } else {
         console.error("❌ Fatal error in fetchUserData:", error);
