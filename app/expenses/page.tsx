@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { exportToCSV, formatForExport } from "@/lib/export";
 
 interface Expense {
   id: string;
@@ -41,10 +42,46 @@ function ExpensesContent() {
     "success",
   );
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterPayment, setFilterPayment] = useState<"all" | "cash" | "upi">(
+    "all",
+  );
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [showExportDateRange, setShowExportDateRange] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0];
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
   const isAdmin = userData?.role === "admin";
+
+  // Filter and search expenses
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      // Category filter
+      if (filterCategory !== "all" && expense.category !== filterCategory) {
+        return false;
+      }
+
+      // Payment filter
+      if (filterPayment !== "all" && expense.payment_mode !== filterPayment) {
+        return false;
+      }
+
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        return (
+          expense.description.toLowerCase().includes(search) ||
+          expense.amount.toString().includes(search) ||
+          expense.created_by_name.toLowerCase().includes(search)
+        );
+      }
+
+      return true;
+    });
+  }, [expenses, searchTerm, filterCategory, filterPayment]);
 
   // Check if user has permission to view expenses
   useEffect(() => {
@@ -106,7 +143,7 @@ function ExpensesContent() {
           category,
           payment_mode: paymentMode,
           description: description.trim(),
-          date: today,
+          date: new Date().toISOString().split("T")[0],
           created_at: new Date().toISOString(),
           created_by: user.id,
           created_by_name: userData.displayName,
@@ -134,6 +171,63 @@ function ExpensesContent() {
     if (!error) {
       showMessage("success", "Expense deleted");
       fetchExpenses();
+    }
+  };
+
+  const handleExportExpenses = async () => {
+    // If date range is selected, fetch data for that range
+    if (showExportDateRange && exportStartDate && exportEndDate) {
+      try {
+        const { data, error } = await supabase
+          .from("expenses")
+          .select("*")
+          .gte("date", exportStartDate)
+          .lte("date", exportEndDate)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+          showMessage("error", "No expenses data in selected date range");
+          return;
+        }
+
+        const exportData = formatForExport(data, {
+          date: "Date",
+          amount: "Amount (₹)",
+          category: "Category",
+          payment_mode: "Payment Mode",
+          description: "Description",
+          created_by_name: "Created By",
+          created_at: "Time",
+        });
+
+        exportToCSV(exportData, `expenses_${exportStartDate}_to_${exportEndDate}`);
+        showMessage("success", "✓ Expenses exported!");
+        setShowExportDateRange(false);
+      } catch (error) {
+        console.error("Error exporting expenses:", error);
+        showMessage("error", "Failed to export expenses");
+      }
+    } else {
+      // Export current filtered expenses
+      if (filteredExpenses.length === 0) {
+        showMessage("error", "No expenses data to export");
+        return;
+      }
+
+      const exportData = formatForExport(filteredExpenses, {
+        date: "Date",
+        amount: "Amount (₹)",
+        category: "Category",
+        payment_mode: "Payment Mode",
+        description: "Description",
+        created_by_name: "Created By",
+        created_at: "Time",
+      });
+
+      exportToCSV(exportData, `expenses_${selectedDate}`);
+      showMessage("success", "✓ Expenses exported!");
     }
   };
 
@@ -215,7 +309,7 @@ function ExpensesContent() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  max={today}
+                  max={new Date().toISOString().split("T")[0]}
                   className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-red-500 focus:outline-none"
                 />
               </div>
@@ -362,18 +456,115 @@ function ExpensesContent() {
 
         {/* Expenses List */}
         <div className="bg-white rounded-lg p-4">
-          <h2 className="text-base font-bold text-gray-900 mb-3">
-            Today&apos;s Expenses ({expenses.length})
-          </h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-bold text-gray-900">
+              Today&apos;s Expenses ({filteredExpenses.length})
+            </h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowExportDateRange(!showExportDateRange)}
+                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all"
+              >
+                📅 {showExportDateRange ? "Cancel" : "Date Range"}
+              </button>
+              <button
+                onClick={handleExportExpenses}
+                className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 transition-all"
+              >
+                📥 Export
+              </button>
+            </div>
+          </div>
 
-          {expenses.length === 0 ? (
+          {/* Export Date Range Selection */}
+          {showExportDateRange && (
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm font-bold text-blue-800 mb-2">
+                Select Date Range for Export
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    max={new Date().toISOString().split("T")[0]}
+                    min={exportStartDate}
+                    className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Search and Filter */}
+          <div className="mb-3 space-y-2">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="🔍 Search by description, amount, or user..."
+              className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              {/* Category Filter */}
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">All Categories</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.emoji} {cat.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Payment Filter */}
+              <select
+                value={filterPayment}
+                onChange={(e) =>
+                  setFilterPayment(e.target.value as "all" | "cash" | "upi")
+                }
+                className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">All Payments</option>
+                <option value="cash">💵 Cash</option>
+                <option value="upi">📱 UPI</option>
+              </select>
+            </div>
+          </div>
+
+          {filteredExpenses.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <div className="text-4xl mb-2">📝</div>
-              <p className="text-sm">No expenses yet today</p>
+              <p className="text-sm">
+                {searchTerm ||
+                filterCategory !== "all" ||
+                filterPayment !== "all"
+                  ? "No matching expenses found"
+                  : "No expenses yet today"}
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {expenses.map((expense) => {
+              {filteredExpenses.map((expense) => {
                 const cat = CATEGORIES.find(
                   (c) => c.value === expense.category,
                 );

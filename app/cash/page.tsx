@@ -486,7 +486,7 @@ function CashContent() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
-          <h1 className="text-3xl md:text-4xl font-bold">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
             💵 Cash & UPI Reconciliation
           </h1>
           <Link
@@ -512,10 +512,10 @@ function CashContent() {
 
         <div className="grid grid-cols-1 gap-6 md:gap-8">
           {/* Date Selection */}
-          <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
             <label
               htmlFor="date"
-              className="block text-sm font-medium mb-2 text-gray-900"
+              className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
             >
               Select Date
             </label>
@@ -525,13 +525,13 @@ function CashContent() {
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               max={today}
-              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
             />
 
             {/* Warning for non-admin viewing past dates */}
             {selectedDate < today && userData?.role !== "admin" && (
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
-                <p className="text-sm text-yellow-800">
+              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-300">
                   ⚠️ You are viewing a past date. Only admins can edit or delete
                   previous reconciliation records.
                 </p>
@@ -544,7 +544,7 @@ function CashContent() {
             {/* LEFT SIDE - CASH */}
             <div className="space-y-6">
               {/* Cash Flow Summary */}
-              <div className="bg-white p-6 rounded-lg shadow-lg border-2 border-green-200">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg border-2 border-green-200 dark:border-green-700">
                 <h2 className="text-2xl font-bold mb-6 text-green-700">
                   💵 Cash Flow
                 </h2>
@@ -585,7 +585,7 @@ function CashContent() {
               </div>
 
               {/* Cash Reconciliation Form */}
-              <div className="bg-white p-6 rounded-lg shadow-lg">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-green-700">
                   Record Cash
                 </h2>
@@ -595,7 +595,7 @@ function CashContent() {
                   <div>
                     <label
                       htmlFor="openingCash"
-                      className="block text-sm font-medium mb-2 text-gray-900"
+                      className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
                     >
                       Opening Cash (₹) *
                     </label>
@@ -706,7 +706,7 @@ function CashContent() {
             {/* RIGHT SIDE - UPI */}
             <div className="space-y-6">
               {/* UPI Flow Summary */}
-              <div className="bg-white p-6 rounded-lg shadow-lg border-2 border-blue-200">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg border-2 border-blue-200 dark:border-blue-700">
                 <h2 className="text-2xl font-bold mb-6 text-blue-700">
                   📱 UPI Flow
                 </h2>
@@ -747,7 +747,7 @@ function CashContent() {
               </div>
 
               {/* UPI Reconciliation Form */}
-              <div className="bg-white p-6 rounded-lg shadow-lg">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-blue-700">
                   Record UPI
                 </h2>
@@ -757,7 +757,7 @@ function CashContent() {
                   <div>
                     <label
                       htmlFor="openingUPI"
-                      className="block text-sm font-medium mb-2 text-gray-900"
+                      className="block text-sm font-medium mb-2 text-gray-900 dark:text-white"
                     >
                       Opening UPI Balance (₹) *
                     </label>
@@ -867,7 +867,7 @@ function CashContent() {
           </div>
 
           {/* Submit Button - Full Width */}
-          <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
             <form onSubmit={handleSubmit}>
               <button
                 type="submit"
@@ -884,13 +884,13 @@ function CashContent() {
           </div>
 
           {/* History - Full Width */}
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-xl font-bold mb-4 text-gray-900">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
               📅 Last 7 Days
             </h2>
 
             {history.length === 0 ? (
-              <div className="text-center py-12 text-gray-600">
+              <div className="text-center py-12 text-gray-600 dark:text-gray-400">
                 <p className="text-4xl mb-2">📊</p>
                 <p className="text-sm">No reconciliation history</p>
               </div>
@@ -901,20 +901,20 @@ function CashContent() {
                     key={rec.id}
                     className={`p-4 border-2 rounded-lg transition ${
                       rec.date === selectedDate
-                        ? "border-blue-400 bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 dark:bg-gray-700/50"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="font-bold text-gray-900">
+                        <p className="font-bold text-gray-900 dark:text-white">
                           {new Date(rec.date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
                           })}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           {formatTime(
                             rec.createdAt?.toDate
                               ? rec.createdAt.toDate()

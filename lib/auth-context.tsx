@@ -44,15 +44,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Check if user was previously authenticated (persisted across sessions)
-  const wasAuthenticated = typeof window !== 'undefined' 
-    ? localStorage.getItem('was_authenticated') === 'true' 
-    : false;
-    
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
-  // Never show loading if user was previously authenticated
-  const [loading, setLoading] = useState(!wasAuthenticated);
+  // Start with loading true to avoid hydration mismatch
+  const [loading, setLoading] = useState(true);
 
   // Fetch user data from Supabase users table
   const fetchUserData = async (uid: string): Promise<UserData | null> => {
@@ -65,8 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(
-          () => reject(new Error("Query timeout after 5 seconds")),
-          5000,
+          () => reject(new Error("Query timeout after 15 seconds")),
+          15000,
         ),
       );
 
@@ -102,12 +97,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Force loading off after 10 seconds max
+    // Force loading off after 20 seconds max
     const timeout = setTimeout(() => {
       if (mounted) {
         setLoading(false);
       }
-    }, 10000);
+    }, 20000);
 
     // Get initial session
     supabase.auth
@@ -128,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             // Mark that user was authenticated - this persists forever
             try {
-              localStorage.setItem('was_authenticated', 'true');
+              localStorage.setItem("was_authenticated", "true");
             } catch (e) {}
           }
         }
@@ -160,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         document.cookie = "userRole=; path=/; max-age=0";
         // Only clear on explicit sign out
         try {
-          localStorage.removeItem('was_authenticated');
+          localStorage.removeItem("was_authenticated");
         } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
@@ -172,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           // Set the persistent flag
           try {
-            localStorage.setItem('was_authenticated', 'true');
+            localStorage.setItem("was_authenticated", "true");
           } catch (e) {}
           setLoading(false);
         }

@@ -16,10 +16,12 @@ export default function ProtectedRoute({
   const { user, userData, loading } = useAuth();
   const router = useRouter();
   
-  // Check if user was previously authenticated
-  const wasAuthenticated = typeof window !== 'undefined' 
-    ? localStorage.getItem('was_authenticated') === 'true' 
-    : false;
+  // Check if user was previously authenticated - use state to avoid hydration mismatch
+  const [wasAuthenticated, setWasAuthenticated] = useState(false);
+
+  useEffect(() => {
+    setWasAuthenticated(localStorage.getItem('was_authenticated') === 'true');
+  }, []);
 
   useEffect(() => {
     console.log(
