@@ -52,11 +52,13 @@ function SalesContent() {
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
   const [newItemCategory, setNewItemCategory] = useState("Main Dishes");
+  const [newCustomCategory, setNewCustomCategory] = useState("");
   const [newItemImage, setNewItemImage] = useState("");
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  const [editCustomCategory, setEditCustomCategory] = useState("");
   const [editImage, setEditImage] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">(
@@ -227,7 +229,7 @@ function SalesContent() {
           {
             name: newItemName.trim(),
             price: parseFloat(newItemPrice),
-            category: newItemCategory,
+            category: newItemCategory === "Custom" ? newCustomCategory.trim() : newItemCategory,
             image_url: newItemImage.trim() || null,
           },
         ])
@@ -243,6 +245,7 @@ function SalesContent() {
       setNewItemName("");
       setNewItemPrice("");
       setNewItemCategory("Main Dishes");
+      setNewCustomCategory("");
       setNewItemImage("");
       setShowAddItem(false);
       await fetchMenuItems();
@@ -268,7 +271,7 @@ function SalesContent() {
         .update({
           name: editName.trim(),
           price: parseFloat(editPrice),
-          category: editCategory,
+          category: editCategory === "Custom" ? editCustomCategory.trim() : editCategory,
           image_url: editImage.trim() || null,
         })
         .eq("id", editingItem.id);
@@ -280,6 +283,7 @@ function SalesContent() {
       setEditName("");
       setEditPrice("");
       setEditCategory("");
+      setEditCustomCategory("");
       setEditImage("");
       await fetchMenuItems();
     } catch (error) {
@@ -311,7 +315,15 @@ function SalesContent() {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price.toString());
-    setEditCategory(item.category || "Main Dishes");
+    const itemCategory = item.category || "Main Dishes";
+    const predefinedCategories = ["Main Dishes", "Sides", "Beverages", "Desserts", "Specials"];
+    if (predefinedCategories.includes(itemCategory)) {
+      setEditCategory(itemCategory);
+      setEditCustomCategory("");
+    } else {
+      setEditCategory("Custom");
+      setEditCustomCategory(itemCategory);
+    }
     setEditImage(item.image_url || "");
   };
 
@@ -552,7 +564,17 @@ function SalesContent() {
                     <option value="Beverages">Beverages</option>
                     <option value="Desserts">Desserts</option>
                     <option value="Specials">Specials</option>
+                    <option value="Custom">Custom...</option>
                   </select>
+                  {newItemCategory === "Custom" && (
+                    <input
+                      type="text"
+                      value={newCustomCategory}
+                      onChange={(e) => setNewCustomCategory(e.target.value)}
+                      placeholder="Enter custom category name"
+                      className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none mb-2"
+                    />
+                  )}
                   <input
                     type="text"
                     value={newItemImage}
@@ -612,7 +634,17 @@ function SalesContent() {
                     <option value="Beverages">Beverages</option>
                     <option value="Desserts">Desserts</option>
                     <option value="Specials">Specials</option>
+                    <option value="Custom">Custom...</option>
                   </select>
+                  {editCategory === "Custom" && (
+                    <input
+                      type="text"
+                      value={editCustomCategory}
+                      onChange={(e) => setEditCustomCategory(e.target.value)}
+                      placeholder="Enter custom category name"
+                      className="w-full p-2 border rounded-md text-sm text-gray-900 mb-2"
+                    />
+                  )}
                   <input
                     type="text"
                     value={editImage}
