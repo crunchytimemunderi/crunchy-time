@@ -862,7 +862,7 @@ function CashContent() {
       const cashInHandValue = parseFloat(actualCash) || 0;
 
       // Export daily slip
-      exportDailySlip({
+      await exportDailySlip({
         date: selectedDate,
         openingCash: openingCashValue,
         openingUPI: openingUPIValue,
@@ -872,11 +872,17 @@ function CashContent() {
       });
 
       showMessage("success", "✓ Daily slip exported!");
-      notifications.success("Export Complete", "Daily slip downloaded successfully");
+      notifications.success(
+        "Export Complete",
+        "Daily slip downloaded successfully",
+      );
     } catch (error: any) {
       console.error("Error exporting daily slip:", error);
       showMessage("error", "Failed to export daily slip");
-      notifications.error("Export Failed", error.message || "Failed to generate daily slip");
+      notifications.error(
+        "Export Failed",
+        error.message || "Failed to generate daily slip",
+      );
     }
   };
 

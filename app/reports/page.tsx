@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/lib/auth-context";
+import { exportReportAsExcel, exportReportAsPDF } from "@/lib/reports-export";
 
 interface Sale {
   id: string;
@@ -47,8 +49,11 @@ function ReportsContent() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [dateRange, setDateRange] = useState<
-    "7days" | "30days" | "90days" | "all"
+    "today" | "yesterday" | "7days" | "30days" | "90days" | "custom" | "all"
   >("30days");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Check permission - Reports should be admin only or have canViewReports permission
   useEffect(() => {
@@ -65,36 +70,68 @@ function ReportsContent() {
 
   const getDateFilter = useCallback(() => {
     const now = new Date();
-    let startDate = new Date();
+    let startDate: Date;
+    let endDate = new Date();
 
     switch (dateRange) {
+      case "today":
+        const todayStr = now.toISOString().split("T")[0];
+        return {
+          start: todayStr,
+          end: todayStr,
+        };
+      case "yesterday":
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        return {
+          start: yesterdayStr,
+          end: yesterdayStr,
+        };
       case "7days":
+        startDate = new Date(now);
         startDate.setDate(now.getDate() - 7);
         break;
       case "30days":
+        startDate = new Date(now);
         startDate.setDate(now.getDate() - 30);
         break;
       case "90days":
+        startDate = new Date(now);
         startDate.setDate(now.getDate() - 90);
         break;
+      case "custom":
+        if (customStartDate && customEndDate) {
+          return {
+            start: customStartDate,
+            end: customEndDate,
+          };
+        }
+        return null;
       case "all":
         return null;
     }
 
-    return startDate.toISOString();
-  }, [dateRange]);
+    return {
+      start: startDate.toISOString().split("T")[0],
+      end: endDate.toISOString().split("T")[0],
+    };
+  }, [dateRange, customStartDate, customEndDate]);
 
   const fetchData = useCallback(async () => {
-    const startDate = getDateFilter();
+    const dateFilter = getDateFilter();
 
     // Fetch sales
     let salesQuery = supabase
       .from("sales")
       .select("*")
+      .is("deleted_at", null)
       .order("date", { ascending: false });
 
-    if (startDate) {
-      salesQuery = salesQuery.gte("date", startDate);
+    if (dateFilter) {
+      salesQuery = salesQuery
+        .gte("date", dateFilter.start)
+        .lte("date", dateFilter.end);
     }
 
     const { data: salesData } = await salesQuery;
@@ -104,10 +141,13 @@ function ReportsContent() {
     let expensesQuery = supabase
       .from("expenses")
       .select("*")
+      .is("deleted_at", null)
       .order("date", { ascending: false });
 
-    if (startDate) {
-      expensesQuery = expensesQuery.gte("date", startDate);
+    if (dateFilter) {
+      expensesQuery = expensesQuery
+        .gte("date", dateFilter.start)
+        .lte("date", dateFilter.end);
     }
 
     const { data: expensesData } = await expensesQuery;
@@ -201,6 +241,97 @@ function ReportsContent() {
 
   const maxDailySale = Math.max(...dailySales.map((d) => d.amount), 1);
 
+  // Export Handlers
+  const getDateRangeLabel = () => {
+    switch (dateRange) {
+      case "today":
+        return "Today";
+      case "yesterday":
+        return "Yesterday";
+      case "7days":
+        return "Last 7 Days";
+      case "30days":
+        return "Last 30 Days";
+      case "90days":
+        return "Last 90 Days";
+      case "custom":
+        return "Custom Range";
+      case "all":
+        return "All Time";
+      default:
+        return dateRange;
+    }
+  };
+
+  const getDateRangeDates = () => {
+    const dateFilter = getDateFilter();
+    if (!dateFilter) {
+      const oldestSale = sales.length > 0 ? sales[sales.length - 1].date : null;
+      const oldestExpense =
+        expenses.length > 0 ? expenses[expenses.length - 1].date : null;
+      let startDate = oldestSale;
+      if (oldestExpense && (!startDate || oldestExpense < startDate)) {
+        startDate = oldestExpense;
+      }
+      return {
+        start: startDate
+          ? new Date(startDate).toLocaleDateString("en-GB")
+          : "Beginning",
+        end: new Date().toLocaleDateString("en-GB"),
+      };
+    }
+    return {
+      start: new Date(dateFilter.start).toLocaleDateString("en-GB"),
+      end: new Date(dateFilter.end).toLocaleDateString("en-GB"),
+    };
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setShowExportMenu(false);
+      const dates = getDateRangeDates();
+
+      await exportReportAsExcel({
+        dateRange: getDateRangeLabel(),
+        startDate: dates.start,
+        endDate: dates.end,
+        sales,
+        expenses,
+        totalSales,
+        totalExpenses,
+        profit,
+        totalCashSales,
+        totalUPISales,
+      });
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      alert("Failed to export Excel report");
+    }
+  };
+
+  const handleExportPDF = () => {
+    try {
+      setShowExportMenu(false);
+      const dates = getDateRangeDates();
+
+      exportReportAsPDF({
+        dateRange: getDateRangeLabel(),
+        startDate: dates.start,
+        endDate: dates.end,
+        sales,
+        expenses,
+        totalSales,
+        totalExpenses,
+        profit,
+        totalCashSales,
+        totalUPISales,
+      });
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      alert("Failed to export PDF report");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900">
@@ -215,23 +346,67 @@ function ReportsContent() {
     <div className="min-h-screen bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            📊 Reports & Analytics
-          </h1>
-          <p className="text-gray-400">
-            Business insights and performance metrics
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              📊 Reports & Analytics
+            </h1>
+            <p className="text-gray-400">
+              Business insights and performance metrics
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            {/* Backup Link */}
+            <Link
+              href="/backup"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              ☁️ Backups
+            </Link>
+
+            {/* Export Button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                📥 Export Report
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-10 py-2">
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-900 flex items-center gap-2"
+                  >
+                    📊 Export as Excel
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-900 flex items-center gap-2"
+                  >
+                    📄 Export as PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Date Range Filter */}
         <div className="bg-white rounded-lg p-4 mb-6">
-          <label className="text-gray-900 font-medium mr-4">Date Range:</label>
-          <div className="inline-flex gap-2 flex-wrap">
+          <label className="text-gray-900 font-medium mr-4 block mb-2">
+            Date Range:
+          </label>
+          <div className="flex flex-wrap gap-2 mb-4">
             {[
+              { value: "today", label: "Today" },
+              { value: "yesterday", label: "Yesterday" },
               { value: "7days", label: "Last 7 Days" },
               { value: "30days", label: "Last 30 Days" },
               { value: "90days", label: "Last 90 Days" },
+              { value: "custom", label: "Custom Range" },
               { value: "all", label: "All Time" },
             ].map((option) => (
               <button
@@ -247,6 +422,41 @@ function ReportsContent() {
               </button>
             ))}
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {dateRange === "custom" && (
+            <div className="flex flex-wrap gap-4 items-center">
+              <div>
+                <label className="text-gray-700 text-sm font-medium mr-2">
+                  From:
+                </label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="border border-gray-300 rounded px-3 py-2 text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="text-gray-700 text-sm font-medium mr-2">
+                  To:
+                </label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="border border-gray-300 rounded px-3 py-2 text-gray-900"
+                />
+              </div>
+              <button
+                onClick={fetchData}
+                disabled={!customStartDate || !customEndDate}
+                className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-md font-medium transition-colors"
+              >
+                Apply
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Key Metrics Grid */}

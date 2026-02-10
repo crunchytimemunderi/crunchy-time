@@ -57,6 +57,7 @@ export function middleware(request: NextRequest) {
     "/expenses",
     "/settings",
     "/reports",
+    "/backup",
   ];
   const isAuthenticatedRoute = authenticatedRoutes.some((route) =>
     pathname.startsWith(route),

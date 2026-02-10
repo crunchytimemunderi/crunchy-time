@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -13,6 +14,79 @@ export default function LoginPage() {
 
   const router = useRouter();
   const { signIn, user } = useAuth();
+
+  // Function to trigger daily backup on login
+  const triggerDailyBackup = async () => {
+    try {
+      // Check if backup already done today
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const lastBackupDate = localStorage.getItem("lastBackupDate");
+
+      if (lastBackupDate === today) {
+        console.log("📦 Backup already downloaded today, skipping...");
+        return;
+      }
+
+      console.log("📥 Triggering daily backup download...");
+
+      // Get session token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.log("⚠️ No session found, skipping backup");
+        return;
+      }
+
+      // Call backup API
+      const response = await fetch("/api/cron/daily-backup", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        // Download the file
+        const blob = await response.blob();
+        const statsHeader = response.headers.get("X-Backup-Stats");
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get("Content-Disposition");
+        const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+        const fileName = filenameMatch
+          ? filenameMatch[1]
+          : `CrunchyTime_Backup_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+        // Download to "Crunchy Time Backup" subfolder in Downloads
+        a.download = `Crunchy Time Backup/${fileName}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        // Save today's date to prevent duplicate downloads
+        localStorage.setItem("lastBackupDate", today);
+
+        console.log("✅ Daily backup downloaded successfully:", fileName);
+        if (statsHeader) {
+          const stats = JSON.parse(statsHeader);
+          console.log("📊 Backup stats:", stats);
+        }
+      } else {
+        console.log("⚠️ Backup download failed:", response.status);
+      }
+    } catch (err) {
+      console.error("❌ Error downloading backup:", err);
+      // Don't block login if backup fails
+    }
+  };
 
   // Redirect if already logged in
   useEffect(() => {
@@ -52,6 +126,11 @@ export default function LoginPage() {
       await signIn(loginEmail, password);
       clearTimeout(timeoutId);
       console.log("✅ Login successful, auth state set");
+
+      // Trigger daily backup automatically (non-blocking)
+      triggerDailyBackup().catch((err) =>
+        console.log("Backup trigger failed:", err),
+      );
 
       // Wait a bit for auth state to update, then redirect
       setTimeout(() => {
