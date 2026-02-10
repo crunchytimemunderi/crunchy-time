@@ -718,7 +718,7 @@ function SalesContent() {
           amount: parseFloat(amount),
           payment_method: paymentMethod,
           description: description.trim(),
-          date: getCurrentDate(),
+          date: selectedDate,
           created_by: user.id,
           created_by_name: userData.displayName,
         })

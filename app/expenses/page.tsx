@@ -174,7 +174,7 @@ function ExpensesContent() {
           category,
           payment_mode: paymentMode,
           description: description.trim(),
-          date: getCurrentDate(),
+          date: selectedDate,
           created_at: new Date().toISOString(),
           created_by: user.id,
           created_by_name: userData.displayName,
