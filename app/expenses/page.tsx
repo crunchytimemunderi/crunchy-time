@@ -360,7 +360,16 @@ function ExpensesContent() {
                   Record Expense
                 </h1>
                 <p className="text-gray-500 text-sm">
-                  Track your daily expenses
+                  {selectedDate === getCurrentDate() ? (
+                    <span className="font-semibold text-red-600">📅 Today</span>
+                  ) : (
+                    new Date(selectedDate).toLocaleDateString("en-IN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  )}
                 </p>
               </div>
             </div>

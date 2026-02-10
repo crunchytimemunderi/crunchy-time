@@ -95,7 +95,7 @@ function SalesContent() {
 
   // Navigate to previous day
   const goToPreviousDay = () => {
-    const current = new Date(selectedDate + 'T00:00:00');
+    const current = new Date(selectedDate + "T00:00:00");
     current.setDate(current.getDate() - 1);
     const prevDate = toLocalDateString(current);
     setSelectedDate(prevDate);
@@ -103,7 +103,7 @@ function SalesContent() {
 
   // Navigate to next day
   const goToNextDay = () => {
-    const current = new Date(selectedDate + 'T00:00:00');
+    const current = new Date(selectedDate + "T00:00:00");
     current.setDate(current.getDate() + 1);
     const nextDate = toLocalDateString(current);
     const today = getCurrentDate();
@@ -858,12 +858,16 @@ function SalesContent() {
                 💰 Record Sale
               </h1>
               <p className="text-gray-600 text-sm">
-                {new Date(selectedDate).toLocaleDateString("en-IN", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {selectedDate === getCurrentDate() ? (
+                  <span className="font-semibold text-blue-600">📅 Today</span>
+                ) : (
+                  new Date(selectedDate).toLocaleDateString("en-IN", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                )}
               </p>
             </div>
             {isAdmin && (
