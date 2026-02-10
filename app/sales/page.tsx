@@ -93,6 +93,26 @@ function SalesContent() {
   const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
 
+  // Navigate to previous day
+  const goToPreviousDay = () => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() - 1);
+    const prevDate = toLocalDateString(current);
+    setSelectedDate(prevDate);
+  };
+
+  // Navigate to next day
+  const goToNextDay = () => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() + 1);
+    const nextDate = toLocalDateString(current);
+    const today = getCurrentDate();
+    // Don't go beyond today
+    if (nextDate <= today) {
+      setSelectedDate(nextDate);
+    }
+  };
+
   // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = loadCart();

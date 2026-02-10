@@ -59,21 +59,21 @@ function ExpensesContent() {
 
   // Navigate to previous day
   const goToPreviousDay = () => {
-    const current = new Date(selectedDate + 'T00:00:00');
+    const current = new Date(selectedDate + "T00:00:00");
     current.setDate(current.getDate() - 1);
     const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, '0');
-    const day = String(current.getDate()).padStart(2, '0');
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const day = String(current.getDate()).padStart(2, "0");
     setSelectedDate(`${year}-${month}-${day}`);
   };
 
   // Navigate to next day
   const goToNextDay = () => {
-    const current = new Date(selectedDate + 'T00:00:00');
+    const current = new Date(selectedDate + "T00:00:00");
     current.setDate(current.getDate() + 1);
     const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, '0');
-    const day = String(current.getDate()).padStart(2, '0');
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const day = String(current.getDate()).padStart(2, "0");
     const nextDate = `${year}-${month}-${day}`;
     const today = getCurrentDate();
     // Don't go beyond today
