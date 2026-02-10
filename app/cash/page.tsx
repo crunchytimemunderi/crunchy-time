@@ -16,6 +16,7 @@ import { validateAmount } from "@/utils/validation";
 import { formatINR } from "@/lib/currency";
 import { notifications } from "@/lib/notifications";
 import { validateCashReconciliation } from "@/lib/cash-validation";
+import { exportDailySlip } from "@/lib/daily-slip-export";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface CashReconciliation {
@@ -833,6 +834,52 @@ function CashContent() {
     }
   };
 
+  const handleExportDailySlip = async () => {
+    try {
+      // Fetch sales for selected date
+      const { data: salesData, error: salesError } = await supabase
+        .from("sales")
+        .select("*")
+        .eq("date", selectedDate)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+
+      if (salesError) throw salesError;
+
+      // Fetch expenses for selected date
+      const { data: expensesData, error: expensesError } = await supabase
+        .from("expenses")
+        .select("*")
+        .eq("date", selectedDate)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+
+      if (expensesError) throw expensesError;
+
+      // Get opening balances from form state
+      const openingCashValue = parseFloat(openingCash) || 0;
+      const openingUPIValue = parseFloat(openingUPI) || 0;
+      const cashInHandValue = parseFloat(actualCash) || 0;
+
+      // Export daily slip
+      exportDailySlip({
+        date: selectedDate,
+        openingCash: openingCashValue,
+        openingUPI: openingUPIValue,
+        cashInHand: cashInHandValue,
+        sales: salesData || [],
+        expenses: expensesData || [],
+      });
+
+      showMessage("success", "✓ Daily slip exported!");
+      notifications.success("Export Complete", "Daily slip downloaded successfully");
+    } catch (error: any) {
+      console.error("Error exporting daily slip:", error);
+      showMessage("error", "Failed to export daily slip");
+      notifications.error("Export Failed", error.message || "Failed to generate daily slip");
+    }
+  };
+
   const handleDelete = async (recId: string) => {
     // Only admin can delete records
     if (userData?.role !== "admin") {
@@ -938,6 +985,16 @@ function CashContent() {
                   →
                 </button>
               </div>
+
+              {/* Export Daily Slip Button */}
+              <button
+                type="button"
+                onClick={handleExportDailySlip}
+                className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <span>📄</span>
+                <span>Export Daily Slip</span>
+              </button>
 
               {/* Warning for non-admin viewing past dates */}
               {selectedDate < today && userData?.role !== "admin" && (
