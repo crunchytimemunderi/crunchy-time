@@ -13,7 +13,7 @@ import {
   createShortcuts,
 } from "@/lib/keyboard-shortcuts";
 import { notifications } from "@/lib/notifications";
-import { getCurrentDate } from "@/utils/formatting";
+import { getCurrentDate, toLocalDateString } from "@/utils/formatting";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Sale {
@@ -851,6 +851,14 @@ function SalesContent() {
                 <label className="text-sm font-medium text-gray-700">
                   📅 View Date:
                 </label>
+                <button
+                  type="button"
+                  onClick={goToPreviousDay}
+                  className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 rounded-lg text-gray-700 font-bold transition-colors"
+                  title="Previous Day"
+                >
+                  ←
+                </button>
                 <input
                   type="date"
                   value={selectedDate}
@@ -858,6 +866,15 @@ function SalesContent() {
                   max={getCurrentDate()}
                   className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={goToNextDay}
+                  disabled={selectedDate >= getCurrentDate()}
+                  className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 rounded-lg text-gray-700 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next Day"
+                >
+                  →
+                </button>
               </div>
             )}
           </div>

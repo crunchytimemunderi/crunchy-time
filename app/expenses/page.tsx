@@ -57,6 +57,31 @@ function ExpensesContent() {
   const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
 
+  // Navigate to previous day
+  const goToPreviousDay = () => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() - 1);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
+  };
+
+  // Navigate to next day
+  const goToNextDay = () => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() + 1);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    const nextDate = `${year}-${month}-${day}`;
+    const today = getCurrentDate();
+    // Don't go beyond today
+    if (nextDate <= today) {
+      setSelectedDate(nextDate);
+    }
+  };
+
   // Filter and search expenses
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
@@ -151,7 +176,11 @@ function ExpensesContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (amount.trim() === "" || isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
+    if (
+      amount.trim() === "" ||
+      isNaN(parseFloat(amount)) ||
+      parseFloat(amount) < 0
+    ) {
       showMessage("error", "₹ Please enter valid amount (0 or more)");
       return;
     }
@@ -340,6 +369,14 @@ function ExpensesContent() {
                 <label className="text-sm font-medium text-gray-700">
                   📅 View Date:
                 </label>
+                <button
+                  type="button"
+                  onClick={goToPreviousDay}
+                  className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 rounded-lg text-gray-700 font-bold transition-colors"
+                  title="Previous Day"
+                >
+                  ←
+                </button>
                 <input
                   type="date"
                   value={selectedDate}
@@ -347,6 +384,15 @@ function ExpensesContent() {
                   max={getCurrentDate()}
                   className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-red-500 focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={goToNextDay}
+                  disabled={selectedDate >= getCurrentDate()}
+                  className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 rounded-lg text-gray-700 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next Day"
+                >
+                  →
+                </button>
               </div>
             )}
           </div>

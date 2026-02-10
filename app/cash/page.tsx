@@ -57,6 +57,30 @@ function CashContent() {
     }
   };
 
+  // Navigate to previous day
+  const goToPreviousDay = () => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() - 1);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    handleDateChange(`${year}-${month}-${day}`);
+  };
+
+  // Navigate to next day
+  const goToNextDay = () => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() + 1);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    const nextDate = `${year}-${month}-${day}`;
+    // Don't go beyond today
+    if (nextDate <= today) {
+      handleDateChange(nextDate);
+    }
+  };
+
   // Cash fields
   const [openingCash, setOpeningCash] = useState("");
   const [openingCashEditable, setOpeningCashEditable] = useState(false);
@@ -796,14 +820,33 @@ function CashContent() {
             >
               Select Date
             </label>
-            <input
-              type="date"
-              id="date"
-              value={selectedDate}
-              onChange={(e) => handleDateChange(e.target.value)}
-              max={today}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
-            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={goToPreviousDay}
+                className="px-3 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 font-bold transition-colors"
+                title="Previous Day"
+              >
+                ←
+              </button>
+              <input
+                type="date"
+                id="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                max={today}
+                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={goToNextDay}
+                disabled={selectedDate >= today}
+                className="px-3 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next Day"
+              >
+                →
+              </button>
+            </div>
 
             {/* Warning for non-admin viewing past dates */}
             {selectedDate < today && userData?.role !== "admin" && (
