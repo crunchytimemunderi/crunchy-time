@@ -81,7 +81,7 @@ export default function BackupPage() {
               Access Denied
             </h2>
             <p className="text-gray-600 mb-6">
-              You don't have permission to access the backup system. Please
+              You don&apos;t have permission to access the backup system. Please
               contact an administrator.
             </p>
             <a
@@ -114,7 +114,7 @@ export default function BackupPage() {
               <div className="space-y-2 text-gray-700">
                 <p>
                   <span className="font-medium">📥 Auto-download:</span> Every
-                  time you log in, yesterday's Daily Slip downloads
+                  time you log in, yesterday&apos;s Daily Slip downloads
                   automatically
                 </p>
                 <p>
@@ -142,7 +142,7 @@ export default function BackupPage() {
               </h2>
               <div className="space-y-2 text-gray-700">
                 <p>
-                  <span className="font-medium">Content:</span> Yesterday's
+                  <span className="font-medium">Content:</span> Yesterday&apos;s
                   Daily Slip with sales and expenses
                 </p>
                 <p>
@@ -188,7 +188,7 @@ export default function BackupPage() {
                     Generating Backup...
                   </>
                 ) : (
-                  <>📥 Download Yesterday's Backup</>
+                  <>📥 Download Yesterday&apos;s Backup</>
                 )}
               </button>
             </div>
@@ -269,17 +269,17 @@ export default function BackupPage() {
               <ul className="list-disc list-inside space-y-2 text-gray-700">
                 <li>✅ Triggers automatically on login</li>
                 <li>✅ Downloads only once per day (prevents duplicates)</li>
-                <li>✅ Saves to your browser's Downloads folder</li>
-                <li>✅ Non-blocking (doesn't slow down login)</li>
+                <li>✅ Saves to your browser&apos;s Downloads folder</li>
+                <li>✅ Non-blocking (doesn&apos;t slow down login)</li>
               </ul>
               <p className="text-gray-700 mt-4">
                 <span className="font-medium">💡 Tip:</span> Check your
-                browser's download history or Downloads folder to see all backup
+                browser&apos;s download history or Downloads folder to see all backup
                 files.
               </p>
               <p className="text-gray-700 mt-2 text-sm">
                 <span className="font-medium">⚙️ Advanced:</span> To reset the
-                backup timer and force a new download, clear your browser's
+                backup timer and force a new download, clear your browser&apos;s
                 localStorage or use the manual download button above.
               </p>
             </div>
