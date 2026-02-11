@@ -128,6 +128,7 @@ function SalesContent() {
         `${savedCart.length} items recovered from previous session`,
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save cart to localStorage whenever it changes
@@ -1020,6 +1021,7 @@ function SalesContent() {
                     </div>
                     {newItemImage && (
                       <div className="mt-2 relative w-20 h-20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={newItemImage}
                           alt="Preview"
@@ -1131,6 +1133,7 @@ function SalesContent() {
                     </div>
                     {editImage && (
                       <div className="mt-2 relative w-20 h-20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={editImage}
                           alt="Preview"
@@ -1229,6 +1232,7 @@ function SalesContent() {
                                   >
                                     {item.image_url ? (
                                       <div className="w-full h-16 mb-1 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                           src={item.image_url}
                                           alt={item.name}
