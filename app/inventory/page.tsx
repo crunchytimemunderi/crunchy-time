@@ -23,8 +23,10 @@ interface InventoryItem {
 
 const defaultCategories = [
   "chicken",
+  "rice",
   "oil",
   "masala",
+  "vegetables",
   "gas",
   "packaging",
   "other",
@@ -56,7 +58,7 @@ function InventoryContent() {
     unit: "kg",
   });
 
-  // Check permission - Inventory is admin only
+  // Check permission - Purchase Register is admin only
   useEffect(() => {
     if (userData && userData.role !== "admin") {
       router.push("/dashboard");
@@ -98,27 +100,6 @@ function InventoryContent() {
       if (error) throw error;
       setItems(data || []);
 
-      // Check for low stock items and send notifications
-      const LOW_STOCK_THRESHOLD: Record<string, number> = {
-        chicken: 50,
-        oil: 20,
-        masala: 10,
-        gas: 2,
-        packaging: 100,
-        other: 10,
-      };
-
-      (data || []).forEach((item) => {
-        const threshold = LOW_STOCK_THRESHOLD[item.category] || 10;
-        if (item.stock_quantity <= threshold) {
-          notifications.lowStockAlert(
-            item.item_name,
-            item.stock_quantity,
-            threshold,
-          );
-        }
-      });
-
       // Extract unique categories and units from existing items
       const uniqueCategories = Array.from(
         new Set(data?.map((item) => item.category) || []),
@@ -133,8 +114,8 @@ function InventoryContent() {
       );
       setUnits(Array.from(new Set([...defaultUnits, ...uniqueUnits])));
     } catch (error) {
-      console.error("Error fetching inventory:", error);
-      showMessage("error", "Failed to load inventory");
+      console.error("Error fetching purchase records:", error);
+      showMessage("error", "Failed to load purchase records");
     } finally {
       setLoading(false);
     }
@@ -284,7 +265,7 @@ function InventoryContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-xl">Loading inventory...</div>
+        <div className="text-xl">Loading purchase records...</div>
       </div>
     );
   }
@@ -294,7 +275,7 @@ function InventoryContent() {
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-          <p className="mt-4">Only administrators can manage inventory.</p>
+          <p className="mt-4">Only administrators can manage purchase records.</p>
           <p className="mt-2 text-sm text-gray-600">
             Your role: {userData?.role || "Not set"}
           </p>
@@ -327,39 +308,36 @@ function InventoryContent() {
 
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">
-            Inventory Management
+            📦 Purchase Register
           </h1>
           <button
             onClick={() => setShowForm(true)}
             className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 font-bold"
           >
-            + Add Item
+            + Record Purchase
           </button>
         </div>
 
-        {/* Low Stock Warning */}
-        {items.filter((item) => item.stock_quantity < 10).length > 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
-            <h3 className="text-yellow-800 font-bold mb-2">
-              ⚠️ Low Stock Alert
-            </h3>
-            <p className="text-yellow-700 text-sm">
-              {items.filter((item) => item.stock_quantity < 10).length} item(s)
-              running low on stock (less than 10 units)
-            </p>
-          </div>
-        )}
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
+          <h3 className="text-blue-800 font-bold mb-2">
+            💡 Track Your Purchases
+          </h3>
+          <p className="text-blue-700 text-sm">
+            Record purchases from suppliers to track spending and compare prices over time
+          </p>
+        </div>
 
         {showForm && (
           <div className="bg-white p-6 rounded-lg shadow-md mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
-              {editingItem ? "Edit Item" : "Add New Item"}
+              {editingItem ? "Edit Purchase Record" : "Record New Purchase"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Item Name *
+                    Item Purchased *
                   </label>
                   <input
                     type="text"
@@ -446,7 +424,7 @@ function InventoryContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Stock Quantity *
+                    Quantity Purchased *
                   </label>
                   <input
                     type="number"
@@ -526,7 +504,7 @@ function InventoryContent() {
                   type="submit"
                   className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
                 >
-                  {editingItem ? "Update" : "Add"} Item
+                  {editingItem ? "Update" : "Record"} Purchase
                 </button>
                 <button
                   type="button"
@@ -545,19 +523,22 @@ function InventoryContent() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Item Name
+                  Item
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Category
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Unit Price
+                  Price/Unit
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stock
+                  Quantity
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Unit
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total Cost
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -568,10 +549,10 @@ function InventoryContent() {
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-6 py-4 text-center text-gray-500"
                   >
-                    No items in inventory. Add your first item!
+                    No purchase records yet. Record your first purchase!
                   </td>
                 </tr>
               ) : (
@@ -589,18 +570,13 @@ function InventoryContent() {
                       {formatINR(item.unit_price)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      <span
-                        className={
-                          item.stock_quantity < 10
-                            ? "text-red-600 font-bold"
-                            : ""
-                        }
-                      >
-                        {item.stock_quantity}
-                      </span>
+                      {item.stock_quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
                       {item.unit}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-semibold">
+                      {formatINR(item.unit_price * item.stock_quantity)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button

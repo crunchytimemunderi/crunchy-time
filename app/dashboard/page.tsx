@@ -506,7 +506,7 @@ function DashboardContent() {
                 className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-all text-center"
               >
                 <div className="text-3xl mb-2">📦</div>
-                <p className="font-semibold text-gray-900">Inventory</p>
+                <p className="font-semibold text-gray-900">Purchase Register</p>
               </Link>
             </>
           )}
