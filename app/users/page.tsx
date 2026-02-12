@@ -508,13 +508,34 @@ function UsersContent() {
     }
 
     try {
-      // Update password using Supabase Admin API
-      const { error } = await supabase.auth.admin.updateUserById(
-        resetPasswordUser.id,
-        { password: newPassword },
-      );
+      // Get the current user's session token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (error) throw error;
+      if (!session) {
+        showMessage("error", "You must be logged in to reset passwords");
+        return;
+      }
+
+      // Call the API endpoint to update password
+      const response = await fetch("/api/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          userId: resetPasswordUser.id,
+          newPassword: newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to reset password");
+      }
 
       showMessage(
         "success",
