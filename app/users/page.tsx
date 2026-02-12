@@ -26,10 +26,14 @@ interface CustomPermissions {
   canViewAllExpenses?: boolean;
   canEditRecords?: boolean;
   canDeleteRecords?: boolean;
+  canViewCash?: boolean;
   canDoCashReconciliation?: boolean;
   canEditPastReconciliation?: boolean;
-  canViewInventory?: boolean;
-  canManageInventory?: boolean;
+  canViewPurchases?: boolean;
+  canAddPurchases?: boolean;
+  canManagePurchases?: boolean;
+  canViewBackup?: boolean;
+  canDownloadBackup?: boolean;
   canManageUsers?: boolean;
 }
 
@@ -117,8 +121,14 @@ const EDITABLE_PERMISSIONS = [
     defaultStaff: false,
   },
   {
+    key: "canViewCash",
+    label: "View Cash Page",
+    defaultAdmin: true,
+    defaultStaff: false,
+  },
+  {
     key: "canDoCashReconciliation",
-    label: "Cash Reconciliation",
+    label: "Do Cash Reconciliation",
     defaultAdmin: true,
     defaultStaff: false,
   },
@@ -129,14 +139,32 @@ const EDITABLE_PERMISSIONS = [
     defaultStaff: false,
   },
   {
-    key: "canViewInventory",
-    label: "View Inventory",
+    key: "canViewPurchases",
+    label: "View Purchase Register",
     defaultAdmin: true,
     defaultStaff: false,
   },
   {
-    key: "canManageInventory",
-    label: "Manage Inventory",
+    key: "canAddPurchases",
+    label: "Add Purchases",
+    defaultAdmin: true,
+    defaultStaff: false,
+  },
+  {
+    key: "canManagePurchases",
+    label: "Edit/Delete Purchases",
+    defaultAdmin: true,
+    defaultStaff: false,
+  },
+  {
+    key: "canViewBackup",
+    label: "View Backup Page",
+    defaultAdmin: true,
+    defaultStaff: false,
+  },
+  {
+    key: "canDownloadBackup",
+    label: "Download Backups",
     defaultAdmin: true,
     defaultStaff: false,
   },
@@ -181,10 +209,13 @@ function UsersContent() {
     text: string;
   } | null>(null);
 
-  const showMessage = useCallback((type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
-  }, [setMessage]);
+  const showMessage = useCallback(
+    (type: "success" | "error", text: string) => {
+      setMessage({ type, text });
+      setTimeout(() => setMessage(null), 5000);
+    },
+    [setMessage],
+  );
 
   const fetchUsers = useCallback(async () => {
     try {

@@ -39,13 +39,22 @@ const navLinks = [
     name: "Cash",
     href: "/cash",
     icon: "💵",
+    allowedRoles: ["admin", "staff"],
+    // Show if user can view OR do reconciliation
+    multiPermission: ["canViewCash", "canDoCashReconciliation"] as const,
+  },
+  {
+    name: "Users",
+    href: "/users",
+    icon: "👥",
     allowedRoles: ["admin"],
-    permission: "canDoCashReconciliation" as const,
+    permission: "canManageUsers" as const,
   },
 ];
 
 export default function Navbar() {
-  const { user, userData, signOut, hasPermission, loading } = useAuth();
+  const { user, userData, signOut, hasPermission, hasAnyPermission, loading } =
+    useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -55,20 +64,31 @@ export default function Navbar() {
   const visibleLinks = useMemo(() => {
     // If userData not loaded yet, show basic links for all authenticated users
     if (!userData) {
-      return navLinks.filter(link => 
-        link.href === "/dashboard" || link.href === "/sales" || link.href === "/expenses"
+      return navLinks.filter(
+        (link) =>
+          link.href === "/dashboard" ||
+          link.href === "/sales" ||
+          link.href === "/expenses",
       );
     }
 
     return navLinks.filter((link) => {
-      // Check permission if defined
-      if (link.permission && !hasPermission(link.permission)) {
-        return false;
+      // Check multiPermission (OR logic) if defined
+      if ("multiPermission" in link && link.multiPermission) {
+        if (!hasAnyPermission(link.multiPermission as any)) {
+          return false;
+        }
+      }
+      // Check single permission if defined
+      else if ("permission" in link && link.permission) {
+        if (!hasPermission(link.permission)) {
+          return false;
+        }
       }
       // Check role
       return link.allowedRoles.includes(userData.role);
     });
-  }, [userData, hasPermission]);
+  }, [userData, hasPermission, hasAnyPermission]);
 
   // Don't show navbar on login page or home page
   if (!user || pathname === "/login" || pathname === "/") {

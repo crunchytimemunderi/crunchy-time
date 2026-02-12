@@ -16,10 +16,14 @@ interface CustomPermissions {
   canViewAllExpenses?: boolean;
   canEditRecords?: boolean;
   canDeleteRecords?: boolean;
+  canViewCash?: boolean;
   canDoCashReconciliation?: boolean;
   canEditPastReconciliation?: boolean;
-  canViewInventory?: boolean;
-  canManageInventory?: boolean;
+  canViewPurchases?: boolean;
+  canAddPurchases?: boolean;
+  canManagePurchases?: boolean;
+  canViewBackup?: boolean;
+  canDownloadBackup?: boolean;
   canManageUsers?: boolean;
 }
 
@@ -39,6 +43,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   hasRole: (requiredRole: UserRole) => boolean;
   hasPermission: (permission: keyof CustomPermissions) => boolean;
+  hasAnyPermission: (permissions: (keyof CustomPermissions)[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -118,7 +123,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
-        console.warn("⏰ Database connection slow - This is expected on slower networks. App will continue to work.");
+        console.warn(
+          "⏰ Database connection slow - This is expected on slower networks. App will continue to work.",
+        );
         // Don't throw, just return null to allow offline mode
       } else {
         console.error("❌ Fatal error in fetchUserData:", error);
@@ -158,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           // Try cache first, then fetch fresh
-          userData = cachedUserData || await fetchUserData(session.user.id);
+          userData = cachedUserData || (await fetchUserData(session.user.id));
           if (mounted && userData) {
             setUserData(userData);
             saveUserDataToCache(userData);
@@ -199,8 +206,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      
-      console.log(`🔄 Auth state change: event=${event}, hasSession=${!!session}`);
+
+      console.log(
+        `🔄 Auth state change: event=${event}, hasSession=${!!session}`,
+      );
 
       if (event === "SIGNED_OUT") {
         console.log("👋 User signed out - clearing all cached data");
@@ -240,6 +249,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Real-time listener for user data changes (permissions, role, etc.)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log("🔔 Setting up real-time listener for user data changes");
+
+    const channel = supabase
+      .channel(`user-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "users",
+          filter: `id=eq.${user.id}`,
+        },
+        async (payload) => {
+          console.log("🔄 User data changed, refreshing...", payload.new);
+
+          // Refetch user data
+          const freshData = await fetchUserData(user.id);
+          if (freshData) {
+            setUserData(freshData);
+            saveUserDataToCache(freshData);
+            console.log("✅ User data refreshed with new permissions/role");
+
+            // Update role cookie
+            if (freshData.role) {
+              document.cookie = `userRole=${freshData.role}; path=/; max-age=604800`;
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("🔕 Cleaning up real-time listener");
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
@@ -358,14 +408,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       canViewAllExpenses: false,
       canEditRecords: false,
       canDeleteRecords: false,
+      canViewCash: false,
       canDoCashReconciliation: false,
       canEditPastReconciliation: false,
-      canViewInventory: false,
-      canManageInventory: false,
+      canViewPurchases: false,
+      canAddPurchases: false,
+      canManagePurchases: false,
+      canViewBackup: false,
+      canDownloadBackup: false,
       canManageUsers: false,
     };
 
     return staffDefaults[permission] === true;
+  };
+
+  // Check if user has ANY of the specified permissions (OR logic)
+  const hasAnyPermission = (
+    permissions: (keyof CustomPermissions)[],
+  ): boolean => {
+    if (!userData) return false;
+
+    // Admin always has all permissions
+    if (userData.role === "admin") return true;
+
+    // Check if user has at least one of the permissions
+    return permissions.some((permission) => hasPermission(permission));
   };
 
   // Check if user has required role
@@ -387,6 +454,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     hasRole,
     hasPermission,
+    hasAnyPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

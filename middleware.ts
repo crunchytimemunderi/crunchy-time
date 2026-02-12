@@ -37,8 +37,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Admin-only routes
-  const adminOnlyRoutes = ["/cash", "/inventory", "/users"];
+  // Admin-only routes (these require admin role, not just permissions)
+  const adminOnlyRoutes = ["/users"];
   const isAdminRoute = adminOnlyRoutes.some((route) =>
     pathname.startsWith(route),
   );
@@ -48,6 +48,19 @@ export function middleware(request: NextRequest) {
     const dashboardUrl = new URL("/dashboard", request.url);
     dashboardUrl.searchParams.set("error", "unauthorized");
     return NextResponse.redirect(dashboardUrl);
+  }
+
+  // Permission-based routes (allow staff with permissions)
+  // Cash and Inventory are now controlled by permissions, not just role
+  const permissionBasedRoutes = ["/cash", "/inventory"];
+  const isPermissionRoute = permissionBasedRoutes.some((route) =>
+    pathname.startsWith(route),
+  );
+
+  // For permission-based routes, allow both admin and staff
+  // The page components will check specific permissions
+  if (isPermissionRoute && (userRole === "admin" || userRole === "staff")) {
+    return NextResponse.next();
   }
 
   // Routes accessible by all authenticated users (admin and staff)

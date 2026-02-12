@@ -35,7 +35,7 @@ const defaultUnits = ["kg", "litre", "piece", "packet", "box"];
 
 function InventoryContent() {
   const router = useRouter();
-  const { user, userData, hasPermission } = useAuth();
+  const { user, userData, hasPermission, hasAnyPermission } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -58,12 +58,19 @@ function InventoryContent() {
     unit: "kg",
   });
 
-  // Check permission - Purchase Register is admin only
+  // Check permission - Purchase Register requires permission
   useEffect(() => {
-    if (userData && userData.role !== "admin") {
+    if (
+      userData &&
+      !hasAnyPermission([
+        "canViewPurchases",
+        "canAddPurchases",
+        "canManagePurchases",
+      ])
+    ) {
       router.push("/dashboard");
     }
-  }, [userData, router]);
+  }, [userData, router, hasAnyPermission]);
 
   const showMessage = useCallback((type: "success" | "error", text: string) => {
     setMessage({ type, text });

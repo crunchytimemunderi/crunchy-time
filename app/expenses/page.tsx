@@ -54,8 +54,125 @@ function ExpensesContent() {
   const [exportEndDate, setExportEndDate] = useState("");
   const [showExportDateRange, setShowExportDateRange] = useState(false);
 
+  // Category management states
+  const [categories, setCategories] = useState(CATEGORIES);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryEmoji, setNewCategoryEmoji] = useState("📦");
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<{
+    value: string;
+    label: string;
+    emoji: string;
+  } | null>(null);
+
   const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
+
+  // Load custom categories from localStorage on mount
+  useEffect(() => {
+    const savedCategories = localStorage.getItem("expenseCategories");
+    if (savedCategories) {
+      try {
+        setCategories(JSON.parse(savedCategories));
+      } catch (e) {
+        console.error("Failed to load custom categories", e);
+      }
+    }
+  }, []);
+
+  // Save categories to localStorage whenever they change
+  const saveCategories = useCallback((newCategories: typeof CATEGORIES) => {
+    setCategories(newCategories);
+    localStorage.setItem("expenseCategories", JSON.stringify(newCategories));
+  }, []);
+
+  // Add new category
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      notifications.error("Please enter a category name");
+      return;
+    }
+
+    const categoryValue = newCategoryName.toLowerCase().replace(/\s+/g, "_");
+
+    if (categories.some((cat) => cat.value === categoryValue)) {
+      notifications.error("Category already exists");
+      return;
+    }
+
+    const newCategory = {
+      value: categoryValue,
+      label: newCategoryName.trim(),
+      emoji: newCategoryEmoji || "📦",
+    };
+
+    saveCategories([...categories, newCategory]);
+    setCategory(categoryValue);
+    setNewCategoryName("");
+    setNewCategoryEmoji("📦");
+    setShowAddCategory(false);
+    notifications.success(`Category "${newCategory.label}" added!`);
+  };
+
+  // Edit existing category
+  const handleEditCategory = () => {
+    if (!editingCategory || !newCategoryName.trim()) return;
+
+    const updatedCategories = categories.map((cat) =>
+      cat.value === editingCategory.value
+        ? { ...cat, label: newCategoryName.trim(), emoji: newCategoryEmoji }
+        : cat,
+    );
+
+    saveCategories(updatedCategories);
+    setEditingCategory(null);
+    setNewCategoryName("");
+    setNewCategoryEmoji("📦");
+    notifications.success("Category updated!");
+  };
+
+  // Delete category
+  const handleDeleteCategory = (categoryValue: string) => {
+    if (categories.length <= 1) {
+      notifications.error("Cannot delete the last category");
+      return;
+    }
+
+    if (confirm("Are you sure you want to delete this category?")) {
+      const updatedCategories = categories.filter(
+        (cat) => cat.value !== categoryValue,
+      );
+      saveCategories(updatedCategories);
+
+      // If current selected category is deleted, switch to first category
+      if (category === categoryValue) {
+        setCategory(updatedCategories[0].value);
+      }
+
+      notifications.success("Category deleted!");
+    }
+  };
+
+  // Start editing category
+  const startEditCategory = (cat: (typeof CATEGORIES)[0]) => {
+    setEditingCategory(cat);
+    setNewCategoryName(cat.label);
+    setNewCategoryEmoji(cat.emoji);
+    setShowAddCategory(true);
+  };
+
+  // Reset categories to default
+  const resetCategories = () => {
+    if (
+      confirm(
+        "Reset to default categories? This will remove all custom categories.",
+      )
+    ) {
+      saveCategories(CATEGORIES);
+      setCategory("chicken");
+      notifications.success("Categories reset to default!");
+    }
+  };
 
   // Navigate to previous day
   const goToPreviousDay = () => {
@@ -439,26 +556,78 @@ function ExpensesContent() {
 
             {/* Category */}
             <div>
-              <label className="block text-base font-bold text-gray-900 mb-2">
-                📦 Select Category
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-base font-bold text-gray-900">
+                  📦 Select Category
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategory(true);
+                    setEditingCategory(null);
+                    setNewCategoryName("");
+                    setNewCategoryEmoji("📦");
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  + Add Category
+                </button>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.value}
-                    type="button"
-                    onClick={() => setCategory(cat.value)}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      category === cat.value
-                        ? "bg-red-600 text-white border-red-700"
-                        : "bg-white text-gray-700 border-gray-300 hover:border-red-500"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{cat.emoji}</div>
-                    <div className="text-sm font-bold">{cat.label}</div>
-                  </button>
+                {categories.map((cat) => (
+                  <div key={cat.value} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => setCategory(cat.value)}
+                      className={`w-full p-3 rounded-lg border-2 transition-all ${
+                        category === cat.value
+                          ? "bg-red-600 text-white border-red-700"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-red-500"
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">{cat.emoji}</div>
+                      <div className="text-sm font-bold">{cat.label}</div>
+                    </button>
+                    {!CATEGORIES.some(
+                      (defaultCat) => defaultCat.value === cat.value,
+                    ) && (
+                      <div className="absolute top-1 right-1 hidden group-hover:flex gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditCategory(cat);
+                          }}
+                          className="bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded hover:bg-blue-600"
+                          title="Edit category"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategory(cat.value);
+                          }}
+                          className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded hover:bg-red-600"
+                          title="Delete category"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
+              {categories.length > CATEGORIES.length && (
+                <button
+                  type="button"
+                  onClick={resetCategories}
+                  className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Reset to defaults
+                </button>
+              )}
             </div>
 
             {/* Description */}
@@ -619,7 +788,7 @@ function ExpensesContent() {
                 className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
               >
                 <option value="all">All Categories</option>
-                {CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <option key={cat.value} value={cat.value}>
                     {cat.emoji} {cat.label}
                   </option>
@@ -655,7 +824,7 @@ function ExpensesContent() {
           ) : (
             <div className="space-y-2">
               {filteredExpenses.map((expense) => {
-                const cat = CATEGORIES.find(
+                const cat = categories.find(
                   (c) => c.value === expense.category,
                 );
                 return (
@@ -708,6 +877,135 @@ function ExpensesContent() {
             </div>
           )}
         </div>
+
+        {/* Add/Edit Category Modal */}
+        {showAddCategory && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {editingCategory ? "✏️ Edit Category" : "➕ Add New Category"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowAddCategory(false);
+                    setEditingCategory(null);
+                    setNewCategoryName("");
+                    setNewCategoryEmoji("📦");
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Category Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g., Transportation, Utilities"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Emoji Picker */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Icon
+                  </label>
+                  <div className="grid grid-cols-8 gap-2">
+                    {[
+                      "📦",
+                      "🚗",
+                      "🏪",
+                      "📱",
+                      "🍽️",
+                      "💧",
+                      "🔧",
+                      "🛍️",
+                      "🎓",
+                      "💊",
+                      "🎬",
+                      "🎮",
+                      "✈️",
+                      "🏋️",
+                      "📚",
+                      "🎨",
+                    ].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewCategoryEmoji(emoji)}
+                        className={`text-2xl p-2 rounded-lg border-2 transition-all ${
+                          newCategoryEmoji === emoji
+                            ? "bg-red-100 border-red-500"
+                            : "bg-gray-50 border-gray-200 hover:border-red-300"
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={newCategoryEmoji}
+                    onChange={(e) => setNewCategoryEmoji(e.target.value)}
+                    placeholder="Or type emoji"
+                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-center text-2xl"
+                    maxLength={2}
+                  />
+                </div>
+
+                {/* Preview */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-sm text-gray-600 mb-2">Preview:</div>
+                  <div className="flex items-center justify-center">
+                    <div className="bg-white p-3 rounded-lg border-2 border-gray-300">
+                      <div className="text-2xl mb-1">
+                        {newCategoryEmoji || "📦"}
+                      </div>
+                      <div className="text-sm font-bold text-gray-700">
+                        {newCategoryName || "Category Name"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddCategory(false);
+                      setEditingCategory(null);
+                      setNewCategoryName("");
+                      setNewCategoryEmoji("📦");
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={
+                      editingCategory ? handleEditCategory : handleAddCategory
+                    }
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                  >
+                    {editingCategory ? "Update" : "Add Category"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

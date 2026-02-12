@@ -44,7 +44,13 @@ interface CashReconciliation {
 
 function CashContent() {
   const router = useRouter();
-  const { user, userData, hasPermission, loading: authLoading } = useAuth();
+  const {
+    user,
+    userData,
+    hasPermission,
+    hasAnyPermission,
+    loading: authLoading,
+  } = useAuth();
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
 
   // Date change handler with validation
@@ -129,13 +135,16 @@ function CashContent() {
         return; // Don't redirect yet, wait for userData to load
       }
 
-      if (userData.role !== "admin") {
-        console.log("❌ Non-admin user detected - redirecting to dashboard");
+      if (!hasAnyPermission(["canViewCash", "canDoCashReconciliation"])) {
+        console.log(
+          "❌ User lacks cash permissions - redirecting to dashboard",
+        );
         router.push("/dashboard");
       } else {
-        console.log("✅ Admin access confirmed");
+        console.log("✅ Cash page access confirmed");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, user, router, authLoading]);
 
   // Cash calculations
@@ -613,12 +622,12 @@ function CashContent() {
       return;
     }
 
-    // Check if editing past date and user is not admin
+    // Check if editing past date and user doesn't have permission
     const isPastDate = selectedDate < today;
-    if (isPastDate && userData.role !== "admin") {
+    if (isPastDate && !hasPermission("canEditPastReconciliation")) {
       showMessage(
         "error",
-        "Only admins can edit previous reconciliation records",
+        "You don't have permission to edit past reconciliations",
       );
       return;
     }
@@ -1551,7 +1560,7 @@ function CashContent() {
 
 export default function CashPage() {
   return (
-    <ProtectedRoute requiredRole="admin">
+    <ProtectedRoute>
       <CashContent />
     </ProtectedRoute>
   );

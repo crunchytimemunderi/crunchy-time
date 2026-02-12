@@ -73,7 +73,7 @@ export default function BackupPage() {
 
   return (
     <ProtectedRoute>
-      {!hasPermission("canViewReports") ? (
+      {!hasPermission("canViewBackup") ? (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center">
           <div className="bg-white rounded-lg p-8 max-w-md text-center">
             <div className="text-6xl mb-4">🔒</div>
@@ -274,8 +274,8 @@ export default function BackupPage() {
               </ul>
               <p className="text-gray-700 mt-4">
                 <span className="font-medium">💡 Tip:</span> Check your
-                browser&apos;s download history or Downloads folder to see all backup
-                files.
+                browser&apos;s download history or Downloads folder to see all
+                backup files.
               </p>
               <p className="text-gray-700 mt-2 text-sm">
                 <span className="font-medium">⚙️ Advanced:</span> To reset the

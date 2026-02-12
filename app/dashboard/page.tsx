@@ -43,7 +43,13 @@ interface CashReconciliation {
 
 function DashboardContent() {
   const router = useRouter();
-  const { user, userData, loading: authLoading } = useAuth();
+  const {
+    user,
+    userData,
+    loading: authLoading,
+    hasPermission,
+    hasAnyPermission,
+  } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashReconciliation, setCashReconciliation] =
@@ -336,34 +342,36 @@ function DashboardContent() {
     const fetchComparativeStats = async () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
 
       const lastWeekStart = new Date();
       lastWeekStart.setDate(lastWeekStart.getDate() - 7);
       const lastWeekEnd = new Date();
       lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
-      const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
-      const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0];
+      const lastWeekStartStr = lastWeekStart.toISOString().split("T")[0];
+      const lastWeekEndStr = lastWeekEnd.toISOString().split("T")[0];
 
       // Yesterday's sales
       const { data: yesterdayData } = await supabase
-        .from('sales')
-        .select('amount')
-        .eq('date', yesterdayStr);
-      const yesterdaySales = yesterdayData?.reduce((sum, s) => sum + s.amount, 0) || 0;
+        .from("sales")
+        .select("amount")
+        .eq("date", yesterdayStr);
+      const yesterdaySales =
+        yesterdayData?.reduce((sum, s) => sum + s.amount, 0) || 0;
 
       // Last week's sales (7 days ago to yesterday)
       const { data: lastWeekData } = await supabase
-        .from('sales')
-        .select('amount, description, created_at')
-        .gte('date', lastWeekStartStr)
-        .lte('date', lastWeekEndStr);
-      const lastWeekSales = lastWeekData?.reduce((sum, s) => sum + s.amount, 0) || 0;
+        .from("sales")
+        .select("amount, description, created_at")
+        .gte("date", lastWeekStartStr)
+        .lte("date", lastWeekEndStr);
+      const lastWeekSales =
+        lastWeekData?.reduce((sum, s) => sum + s.amount, 0) || 0;
 
       // Best sellers (last 7 days)
       const itemCounts: Record<string, { count: number; revenue: number }> = {};
       lastWeekData?.forEach((sale) => {
-        const items = sale.description.split(',').map((i: string) => i.trim());
+        const items = sale.description.split(",").map((i: string) => i.trim());
         items.forEach((item: string) => {
           if (!itemCounts[item]) {
             itemCounts[item] = { count: 0, revenue: 0 };
@@ -374,7 +382,11 @@ function DashboardContent() {
         });
       });
       const bestSellers = Object.entries(itemCounts)
-        .map(([item, data]) => ({ item, count: data.count, revenue: data.revenue }))
+        .map(([item, data]) => ({
+          item,
+          count: data.count,
+          revenue: data.revenue,
+        }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
@@ -611,16 +623,20 @@ function DashboardContent() {
                       <span
                         className={`text-sm font-semibold ${
                           stats.totalSales >= comparativeStats.yesterdaySales
-                            ? 'text-green-600'
-                            : 'text-red-600'
+                            ? "text-green-600"
+                            : "text-red-600"
                         }`}
                       >
-                        {stats.totalSales >= comparativeStats.yesterdaySales ? '↗' : '↘'}
-                        {stats.totalSales > 0 && comparativeStats.yesterdaySales > 0
+                        {stats.totalSales >= comparativeStats.yesterdaySales
+                          ? "↗"
+                          : "↘"}
+                        {stats.totalSales > 0 &&
+                        comparativeStats.yesterdaySales > 0
                           ? Math.abs(
-                              ((stats.totalSales - comparativeStats.yesterdaySales) /
+                              ((stats.totalSales -
+                                comparativeStats.yesterdaySales) /
                                 comparativeStats.yesterdaySales) *
-                                100
+                                100,
                             ).toFixed(1)
                           : 0}
                         %
@@ -628,22 +644,26 @@ function DashboardContent() {
                     )}
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>Yesterday: {formatINR(comparativeStats.yesterdaySales)}</span>
+                    <span>
+                      Yesterday: {formatINR(comparativeStats.yesterdaySales)}
+                    </span>
                     <span>Today: {formatINR(stats.totalSales)}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
                       className={`h-2 rounded-full ${
                         stats.totalSales >= comparativeStats.yesterdaySales
-                          ? 'bg-green-500'
-                          : 'bg-red-500'
+                          ? "bg-green-500"
+                          : "bg-red-500"
                       }`}
                       style={{
                         width: `${
                           comparativeStats.yesterdaySales > 0
                             ? Math.min(
-                                (stats.totalSales / comparativeStats.yesterdaySales) * 100,
-                                100
+                                (stats.totalSales /
+                                  comparativeStats.yesterdaySales) *
+                                  100,
+                                100,
                               )
                             : 100
                         }%`,
@@ -660,16 +680,20 @@ function DashboardContent() {
                       <span
                         className={`text-sm font-semibold ${
                           stats.totalSales >= comparativeStats.lastWeekSales / 7
-                            ? 'text-green-600'
-                            : 'text-red-600'
+                            ? "text-green-600"
+                            : "text-red-600"
                         }`}
                       >
-                        {stats.totalSales >= comparativeStats.lastWeekSales / 7 ? '↗' : '↘'}
-                        {stats.totalSales > 0 && comparativeStats.lastWeekSales > 0
+                        {stats.totalSales >= comparativeStats.lastWeekSales / 7
+                          ? "↗"
+                          : "↘"}
+                        {stats.totalSales > 0 &&
+                        comparativeStats.lastWeekSales > 0
                           ? Math.abs(
-                              ((stats.totalSales - comparativeStats.lastWeekSales / 7) /
+                              ((stats.totalSales -
+                                comparativeStats.lastWeekSales / 7) /
                                 (comparativeStats.lastWeekSales / 7)) *
-                                100
+                                100,
                             ).toFixed(1)
                           : 0}
                         %
@@ -677,23 +701,26 @@ function DashboardContent() {
                     )}
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>Week Avg: {formatINR(comparativeStats.lastWeekSales / 7)}</span>
+                    <span>
+                      Week Avg: {formatINR(comparativeStats.lastWeekSales / 7)}
+                    </span>
                     <span>Today: {formatINR(stats.totalSales)}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
                       className={`h-2 rounded-full ${
                         stats.totalSales >= comparativeStats.lastWeekSales / 7
-                          ? 'bg-green-500'
-                          : 'bg-red-500'
+                          ? "bg-green-500"
+                          : "bg-red-500"
                       }`}
                       style={{
                         width: `${
                           comparativeStats.lastWeekSales > 0
                             ? Math.min(
-                                (stats.totalSales / (comparativeStats.lastWeekSales / 7)) *
+                                (stats.totalSales /
+                                  (comparativeStats.lastWeekSales / 7)) *
                                   100,
-                                100
+                                100,
                               )
                             : 100
                         }%`,
@@ -708,7 +735,9 @@ function DashboardContent() {
             <div className="bg-white p-6 rounded-lg shadow-lg">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 🏆 Top Sellers
-                <span className="text-xs text-gray-500 font-normal">(Last 7 Days)</span>
+                <span className="text-xs text-gray-500 font-normal">
+                  (Last 7 Days)
+                </span>
               </h3>
               {comparativeStats.bestSellers.length > 0 ? (
                 <div className="space-y-3">
@@ -717,12 +746,12 @@ function DashboardContent() {
                       <div
                         className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm ${
                           index === 0
-                            ? 'bg-yellow-100 text-yellow-700'
+                            ? "bg-yellow-100 text-yellow-700"
                             : index === 1
-                            ? 'bg-gray-100 text-gray-700'
-                            : index === 2
-                            ? 'bg-orange-100 text-orange-700'
-                            : 'bg-blue-50 text-blue-600'
+                              ? "bg-gray-100 text-gray-700"
+                              : index === 2
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-blue-50 text-blue-600"
                         }`}
                       >
                         {index + 1}
@@ -749,7 +778,9 @@ function DashboardContent() {
             <div className="bg-white p-6 rounded-lg shadow-lg">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 ⏰ Peak Hours
-                <span className="text-xs text-gray-500 font-normal">(Today)</span>
+                <span className="text-xs text-gray-500 font-normal">
+                  (Today)
+                </span>
               </h3>
               {comparativeStats.peakHours.length > 0 ? (
                 <div className="space-y-3">
@@ -770,7 +801,8 @@ function DashboardContent() {
                             style={{
                               width: `${
                                 comparativeStats.peakHours[0]?.sales > 0
-                                  ? (hour.sales / comparativeStats.peakHours[0].sales) *
+                                  ? (hour.sales /
+                                      comparativeStats.peakHours[0].sales) *
                                     100
                                   : 0
                               }%`,
@@ -778,7 +810,7 @@ function DashboardContent() {
                           />
                         </div>
                         <span className="text-xs text-gray-500 w-12 text-right">
-                          {hour.count} {hour.count === 1 ? 'sale' : 'sales'}
+                          {hour.count} {hour.count === 1 ? "sale" : "sales"}
                         </span>
                       </div>
                     </div>
@@ -809,23 +841,36 @@ function DashboardContent() {
             <div className="text-3xl mb-2">💳</div>
             <p className="font-semibold text-gray-900">Add Expense</p>
           </Link>
-          {isAdmin && (
-            <>
-              <Link
-                href="/cash"
-                className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-all text-center"
-              >
-                <div className="text-3xl mb-2">💰</div>
-                <p className="font-semibold text-gray-900">Cash Balance</p>
-              </Link>
-              <Link
-                href="/inventory"
-                className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-all text-center"
-              >
-                <div className="text-3xl mb-2">📦</div>
-                <p className="font-semibold text-gray-900">Purchase Register</p>
-              </Link>
-            </>
+          {hasAnyPermission(["canViewCash", "canDoCashReconciliation"]) && (
+            <Link
+              href="/cash"
+              className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-all text-center"
+            >
+              <div className="text-3xl mb-2">💰</div>
+              <p className="font-semibold text-gray-900">Cash Balance</p>
+            </Link>
+          )}
+          {hasAnyPermission([
+            "canViewPurchases",
+            "canAddPurchases",
+            "canManagePurchases",
+          ]) && (
+            <Link
+              href="/inventory"
+              className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-all text-center"
+            >
+              <div className="text-3xl mb-2">📦</div>
+              <p className="font-semibold text-gray-900">Purchase Register</p>
+            </Link>
+          )}
+          {hasPermission("canManageUsers") && (
+            <Link
+              href="/users"
+              className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-all text-center"
+            >
+              <div className="text-3xl mb-2">👥</div>
+              <p className="font-semibold text-gray-900">User Management</p>
+            </Link>
           )}
         </div>
 
