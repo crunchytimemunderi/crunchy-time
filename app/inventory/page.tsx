@@ -275,7 +275,9 @@ function InventoryContent() {
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-          <p className="mt-4">Only administrators can manage purchase records.</p>
+          <p className="mt-4">
+            Only administrators can manage purchase records.
+          </p>
           <p className="mt-2 text-sm text-gray-600">
             Your role: {userData?.role || "Not set"}
           </p>
@@ -324,7 +326,8 @@ function InventoryContent() {
             💡 Track Your Purchases
           </h3>
           <p className="text-blue-700 text-sm">
-            Record purchases from suppliers to track spending and compare prices over time
+            Record purchases from suppliers to track spending and compare prices
+            over time
           </p>
         </div>
 
