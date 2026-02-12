@@ -428,6 +428,7 @@ function InventoryContent() {
                     onChange={(e) =>
                       setFormData({ ...formData, unit_price: e.target.value })
                     }
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full p-2 border rounded text-gray-900"
                     required
                   />
@@ -446,6 +447,7 @@ function InventoryContent() {
                         stock_quantity: e.target.value,
                       })
                     }
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full p-2 border rounded text-gray-900"
                     required
                   />

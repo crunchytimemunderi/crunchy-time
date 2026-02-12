@@ -548,6 +548,7 @@ function ExpensesContent() {
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 placeholder="Enter amount"
                 className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
                 autoFocus

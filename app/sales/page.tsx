@@ -963,6 +963,7 @@ function SalesContent() {
                       step="0.01"
                       value={newItemPrice}
                       onChange={(e) => setNewItemPrice(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="Price ₹"
                       className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
@@ -1075,6 +1076,7 @@ function SalesContent() {
                       step="0.01"
                       value={editPrice}
                       onChange={(e) => setEditPrice(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="Price ₹"
                       className="p-2 border rounded-md text-sm text-gray-900"
                     />
@@ -1334,6 +1336,7 @@ function SalesContent() {
                   step="1"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
                 />
               </div>
@@ -1346,6 +1349,7 @@ function SalesContent() {
                   step="0.01"
                   value={subtotal}
                   readOnly
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full p-2.5 text-base border-2 border-gray-300 bg-gray-100 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
                 />
               </div>
@@ -1363,6 +1367,7 @@ function SalesContent() {
                   min="0"
                   value={discount}
                   onChange={(e) => handleDiscountChange(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="0"
                   className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
                 />
@@ -1377,6 +1382,7 @@ function SalesContent() {
                   min="0"
                   value={additional}
                   onChange={(e) => handleAdditionalChange(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="0"
                   className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
                 />
@@ -1393,6 +1399,7 @@ function SalesContent() {
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 placeholder="Auto-calculated"
                 className="w-full p-3 text-lg font-bold border-2 border-green-500 bg-slate-700 rounded-lg text-green-400 focus:border-green-400 focus:outline-none"
               />

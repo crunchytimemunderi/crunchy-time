@@ -1103,6 +1103,7 @@ function CashContent() {
                         min="0"
                         value={openingCash}
                         onChange={(e) => setOpeningCash(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                           openingCashEditable
@@ -1133,6 +1134,7 @@ function CashContent() {
                         min="0"
                         value={actualCash}
                         onChange={(e) => setActualCash(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700"
                         required
@@ -1284,6 +1286,7 @@ function CashContent() {
                         min="0"
                         value={openingUPI}
                         onChange={(e) => setOpeningUPI(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           openingUPIEditable
@@ -1311,6 +1314,7 @@ function CashContent() {
                         min="0"
                         value={actualUPI}
                         onChange={(e) => setActualUPI(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
                         required
