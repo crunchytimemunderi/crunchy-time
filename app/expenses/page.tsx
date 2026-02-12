@@ -505,6 +505,7 @@ function ExpensesContent() {
                 </button>
                 <input
                   type="date"
+                  aria-label="View date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   max={getCurrentDate()}
@@ -749,6 +750,7 @@ function ExpensesContent() {
                   </label>
                   <input
                     type="date"
+                    aria-label="Export start date"
                     value={exportStartDate}
                     onChange={(e) => setExportStartDate(e.target.value)}
                     max={getCurrentDate()}
@@ -761,6 +763,7 @@ function ExpensesContent() {
                   </label>
                   <input
                     type="date"
+                    aria-label="Export end date"
                     value={exportEndDate}
                     onChange={(e) => setExportEndDate(e.target.value)}
                     max={getCurrentDate()}
@@ -776,6 +779,7 @@ function ExpensesContent() {
           <div className="mb-3 space-y-2">
             <input
               type="text"
+              aria-label="Search expenses"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="🔍 Search by description, amount, or user..."
@@ -784,6 +788,7 @@ function ExpensesContent() {
             <div className="grid grid-cols-2 gap-2">
               {/* Category Filter */}
               <select
+                aria-label="Filter expenses by category"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
@@ -798,6 +803,7 @@ function ExpensesContent() {
 
               {/* Payment Filter */}
               <select
+                aria-label="Filter expenses by payment method"
                 value={filterPayment}
                 onChange={(e) =>
                   setFilterPayment(e.target.value as "all" | "cash" | "upi")

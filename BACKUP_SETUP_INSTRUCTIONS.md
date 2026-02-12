@@ -35,7 +35,7 @@ This is the same Daily Slip format used throughout the app.
 
 **Nothing!** Just log in as usual:
 
-1. Open http://localhost:3000/login (or your production URL)
+1. Open <http://localhost:3000/login> (or your production URL)
 2. Enter your username and password
 3. Click "Sign In"
 4. Daily Slip backup downloads automatically
@@ -69,7 +69,7 @@ The system uses your browser's localStorage to track the last backup date. If yo
 
 If you need a Daily Slip backup without logging in again:
 
-1. Open the backup page: http://localhost:3000/backup (or your production URL)
+1. Open the backup page: <http://localhost:3000/backup> (or your production URL)
 2. Click "📥 Download Yesterday's Backup" button
 3. File downloads immediately
 
@@ -120,8 +120,6 @@ To force a new download (useful for testing):
 **Note:** The PowerShell script (`backup-script.ps1`) is included but **not required** since backups now download automatically on login.
 
 However, you can still use it if you want backups without logging in to the web app.
-
-### Using the PowerShell Script
 
 ### Using the PowerShell Script
 

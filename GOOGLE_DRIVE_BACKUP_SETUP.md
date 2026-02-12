@@ -53,7 +53,7 @@ This system automatically backs up yesterday's sales and expenses to Google Driv
 3. Copy the **service account email** from the JSON file (looks like: `crunchy-time-backup@project-id.iam.gserviceaccount.com`)
 4. Paste it in the share dialog and give **Editor** access
 5. Copy the **Folder ID** from the URL (the long string after `/folders/`)
-   - Example: `https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j`
+   - Example: <https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j>
    - Folder ID: `1a2b3c4d5e6f7g8h9i0j`
 
 ### Step 6: Configure Environment Variables
@@ -61,7 +61,7 @@ This system automatically backs up yesterday's sales and expenses to Google Driv
 1. Open your `.env.local` file (or create it from `.env.local.example`)
 2. Add these variables:
 
-```env
+```bash
 # Supabase Service Role Key (needed for cron access to database)
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
@@ -75,7 +75,7 @@ GOOGLE_DRIVE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
 CRON_SECRET=your-random-secret-here
 ```
 
-**To generate CRON_SECRET:**
+### To generate CRON_SECRET
 
 - Open PowerShell and run: `[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))`
 - Or use any random string generator
@@ -105,7 +105,7 @@ CRON_SECRET=your-random-secret-here
 
 ### Step 9: Verify Setup
 
-#### Test the Backup Manually:
+#### Test the Backup Manually
 
 You can test the backup endpoint locally or in production:
 
@@ -247,7 +247,5 @@ If you need help:
 2. Review the API route logs at `/api/cron/daily-backup`
 3. Test manually using the commands above
 4. Verify all environment variables are correctly set
-
----
 
 **Setup Complete!** Your daily backups will now run automatically at 6:00 AM every day. 🎉

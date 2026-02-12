@@ -1,6 +1,6 @@
-# ✅ Deployment Complete!
+# ✅ Deployment Complete
 
-## What Just Happened:
+## What Just Happened
 
 ### 📦 Git Commit
 
@@ -21,7 +21,7 @@
 ### 🚀 GitHub Push
 
 **Status:** ✅ Successfully pushed to `main` branch
-**Repository:** https://github.com/crunchytimemunderi/crunchy-time.git
+**Repository:** <https://github.com/crunchytimemunderi/crunchy-time.git>
 
 ---
 
@@ -29,10 +29,10 @@
 
 Your changes are now on GitHub. Vercel will automatically deploy them:
 
-### Check Deployment Status:
+### Check Deployment Status
 
 1. **Go to Vercel Dashboard:**
-   https://vercel.com/dashboard
+   <https://vercel.com/dashboard>
 
 2. **Find your project:** "crunchy-time" or similar
 
@@ -41,10 +41,10 @@ Your changes are now on GitHub. Vercel will automatically deploy them:
    - Status will show: "Building" → "Ready"
 
 4. **Once deployed, visit your production URL:**
-   - Example: https://crunchy-time.vercel.app
+   - Example: <https://crunchy-time.vercel.app>
    - Or whatever your Vercel URL is
 
-### Verify the Update Works:
+### Verify the Update Works
 
 On your production Vercel URL:
 
@@ -82,13 +82,13 @@ On your production Vercel URL:
 
 ## 🔍 Troubleshooting
 
-### If Vercel doesn't auto-deploy:
+### If Vercel does not auto-deploy
 
 1. Check Vercel dashboard for errors
 2. Manually trigger deployment:
    - Vercel Dashboard → Your Project → Deployments → Redeploy
 
-### If deployment fails:
+### If deployment fails
 
 1. Check Vercel build logs
 2. Verify environment variables are set:
@@ -97,7 +97,7 @@ On your production Vercel URL:
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `CRON_SECRET`
 
-### Test locally first:
+### Test locally first
 
 ```powershell
 npm run build

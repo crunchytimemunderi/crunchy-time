@@ -4,7 +4,7 @@ This guide will help you set up automatic backups to Google Drive.
 
 ## Step 1: Create Google Cloud Project
 
-1. Go to https://console.cloud.google.com
+1. Go to <https://console.cloud.google.com>
 2. Click **"Select a project"** → **"New Project"**
 3. Name: **"Crunchy Times Backup"**
 4. Click **Create**
@@ -51,7 +51,7 @@ This will:
 
 ## Step 5: Create Google Drive Folder
 
-1. Go to https://drive.google.com
+1. Go to <https://drive.google.com>
 2. Create a new folder: **"Crunchy Times Backups"**
 3. Open the folder
 4. Look at the URL: `https://drive.google.com/drive/folders/FOLDER_ID_HERE`
@@ -61,7 +61,7 @@ This will:
 
 Open `.env.local` and add these lines:
 
-```env
+```bash
 # Google Drive Backup
 GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret-here
@@ -130,7 +130,7 @@ Now your data will automatically backup to Google Drive every night!
 - ✅ Your `.env.local` file is in `.gitignore` (credentials won't be committed)
 - ✅ Use a Google account you control
 - ✅ The app only has access to files it creates
-- ✅ You can revoke access anytime at https://myaccount.google.com/permissions
+- You can revoke access anytime at <https://myaccount.google.com/permissions>
 
 ## Next Steps
 

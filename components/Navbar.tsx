@@ -141,29 +141,7 @@ export default function Navbar() {
                 loading="eager"
                 className="h-12 w-12 rounded-full object-cover shadow-lg ring-2 ring-red-500 group-hover:ring-orange-500 transition-all"
               />
-              <span
-                className="text-2xl font-black tracking-wider hidden sm:block transition-all group-hover:scale-105"
-                style={{
-                  fontFamily:
-                    '"Comic Sans MS", "Arial Black", Impact, sans-serif',
-                  fontWeight: 900,
-                  color: "#FFFFFF",
-                  textShadow: `
-                    inset 0px -2px 4px rgba(220, 0, 0, 0.8),
-                    3px 3px 0px #FF0000,
-                    5px 5px 0px #D00000,
-                    7px 7px 0px #880000,
-                    9px 9px 8px rgba(136, 0, 0, 0.5),
-                    -1px -1px 0px #FF0000,
-                    1px -1px 0px #FF0000,
-                    -1px 1px 0px #FF0000,
-                    0px 0px 15px rgba(255, 0, 0, 0.9)
-                  `,
-                  WebkitTextStroke: "3px #FF0000",
-                  paintOrder: "stroke fill",
-                  letterSpacing: "0.05em",
-                }}
-              >
+              <span className="brand-text text-2xl hidden sm:block transition-all group-hover:scale-105">
                 CRUNCHY TIME
               </span>
             </Link>
@@ -217,10 +195,9 @@ export default function Navbar() {
             >
               <span className="sr-only">Open menu</span>
               <svg
-                className="h-6 w-6 transition-transform duration-300"
-                style={{
-                  transform: isMenuOpen ? "rotate(90deg)" : "rotate(0)",
-                }}
+                className={`h-6 w-6 transition-transform duration-300 ${
+                  isMenuOpen ? "rotate-90" : "rotate-0"
+                }`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"

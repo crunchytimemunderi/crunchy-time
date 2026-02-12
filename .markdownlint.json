@@ -1,0 +1,6 @@
+{
+  "extends": "markdownlint/style/relaxed",
+  "MD031": false,
+  "MD040": false,
+  "default": true
+}

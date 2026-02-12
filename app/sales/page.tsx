@@ -886,6 +886,7 @@ function SalesContent() {
                 </button>
                 <input
                   type="date"
+                  aria-label="View date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   max={getCurrentDate()}
@@ -969,6 +970,7 @@ function SalesContent() {
                     />
                   </div>
                   <select
+                    aria-label="Menu item category"
                     value={newItemCategory}
                     onChange={(e) => setNewItemCategory(e.target.value)}
                     className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none mb-2"
@@ -1082,6 +1084,7 @@ function SalesContent() {
                     />
                   </div>
                   <select
+                    aria-label="Edit item category"
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
                     className="w-full p-2 border rounded-md text-sm text-gray-900 mb-2"
@@ -1332,6 +1335,7 @@ function SalesContent() {
                 </label>
                 <input
                   type="number"
+                  aria-label="Quantity"
                   min="1"
                   step="1"
                   value={quantity}
@@ -1346,6 +1350,7 @@ function SalesContent() {
                 </label>
                 <input
                   type="number"
+                  aria-label="Subtotal"
                   step="0.01"
                   value={subtotal}
                   readOnly
@@ -1363,6 +1368,7 @@ function SalesContent() {
                 </label>
                 <input
                   type="number"
+                  aria-label="Discount"
                   step="0.01"
                   min="0"
                   value={discount}
@@ -1378,6 +1384,7 @@ function SalesContent() {
                 </label>
                 <input
                   type="number"
+                  aria-label="Additional"
                   step="0.01"
                   min="0"
                   value={additional}
@@ -1396,6 +1403,7 @@ function SalesContent() {
               </label>
               <input
                 type="number"
+                aria-label="Final total"
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -1521,6 +1529,7 @@ function SalesContent() {
                   </label>
                   <input
                     type="date"
+                    aria-label="Export start date"
                     value={exportStartDate}
                     onChange={(e) => setExportStartDate(e.target.value)}
                     max={getCurrentDate()}
@@ -1533,6 +1542,7 @@ function SalesContent() {
                   </label>
                   <input
                     type="date"
+                    aria-label="Export end date"
                     value={exportEndDate}
                     onChange={(e) => setExportEndDate(e.target.value)}
                     max={getCurrentDate()}
@@ -1549,6 +1559,7 @@ function SalesContent() {
             <input
               ref={searchInputRef}
               type="text"
+              aria-label="Search sales"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="🔍 Search by description, amount, or user..."
@@ -1558,6 +1569,7 @@ function SalesContent() {
             {/* Category Filter */}
             <div className="flex gap-2">
               <select
+                aria-label="Filter sales by category"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="flex-1 p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"

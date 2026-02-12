@@ -18,7 +18,7 @@ Use this checklist when setting up Crunchy Times on your shop computer.
 
 ## Option A: Vercel Deployment (Easiest)
 
-- [ ] Create Vercel account at https://vercel.com
+- [ ] Create Vercel account at <https://vercel.com>
 - [ ] Push code to GitHub/GitLab
 - [ ] Connect repository to Vercel
 - [ ] Add all 4 environment variables in Vercel dashboard
@@ -32,9 +32,9 @@ Use this checklist when setting up Crunchy Times on your shop computer.
 
 ## Option B: Local Installation on Shop PC
 
-### On Shop Computer:
+### On Shop Computer
 
-- [ ] Install Node.js from https://nodejs.org/ (LTS version)
+- [ ] Install Node.js from <https://nodejs.org/> (LTS version)
 - [ ] Copy project folder from USB to `C:\Users\[Username]\Documents\Crunchy Times`
   - **OR** Clone from GitHub: `git clone [your-repo-url]`
 - [ ] Open PowerShell as Administrator
@@ -48,22 +48,22 @@ Use this checklist when setting up Crunchy Times on your shop computer.
   ```
   (Wait 5-10 minutes)
 
-### Configure Environment:
+### Configure Environment
 
 - [ ] Create `.env.local` file in project root
 - [ ] Paste your environment variables (4 lines)
 - [ ] Save file
 
-### Start Application:
+### Start Application
 
 - [ ] Test run:
   ```powershell
   npm run dev
   ```
-- [ ] Open browser: http://localhost:3000
+- [ ] Open browser: <http://localhost:3000>
 - [ ] Verify app loads
 
-### Auto-Start on Boot:
+### Auto-Start on Boot
 
 - [ ] Create `start-crunchy-times.bat` in project folder:
   ```batch
@@ -74,7 +74,7 @@ Use this checklist when setting up Crunchy Times on your shop computer.
 - [ ] Press `Win + R`, type `shell:startup`, press Enter
 - [ ] Create shortcut to `.bat` file in startup folder
 - [ ] Restart computer to test auto-start
-- [ ] Verify: Open http://localhost:3000 - should work!
+- [ ] Verify: Open <http://localhost:3000> - should work!
 
 ---
 
@@ -95,12 +95,12 @@ Use this checklist when setting up Crunchy Times on your shop computer.
 
 ## Multiple Computers Setup
 
-### If using Vercel:
+### If using Vercel
 
 - [ ] Bookmark Vercel URL on each computer
 - [ ] That's it! Each computer downloads independently
 
-### If using Local:
+### If using Local
 
 - [ ] Note server computer's IP address:
   ```powershell
@@ -173,9 +173,9 @@ If something doesn't work:
 
 ---
 
-**Deployment Date:** ******\_\_\_******
+**Deployment Date:** **\*\***\_\_\_**\*\***
 
-**Deployed By:** ******\_\_\_******
+**Deployed By:** **\*\***\_\_\_**\*\***
 
 **Method Used:** [ ] Vercel [ ] Local
 

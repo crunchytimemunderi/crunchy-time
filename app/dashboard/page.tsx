@@ -649,27 +649,24 @@ function DashboardContent() {
                     </span>
                     <span>Today: {formatINR(stats.totalSales)}</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        stats.totalSales >= comparativeStats.yesterdaySales
-                          ? "bg-green-500"
-                          : "bg-red-500"
-                      }`}
-                      style={{
-                        width: `${
-                          comparativeStats.yesterdaySales > 0
-                            ? Math.min(
-                                (stats.totalSales /
-                                  comparativeStats.yesterdaySales) *
-                                  100,
-                                100,
-                              )
-                            : 100
-                        }%`,
-                      }}
-                    />
-                  </div>
+                  <progress
+                    value={
+                      comparativeStats.yesterdaySales > 0
+                        ? Math.min(
+                            (stats.totalSales /
+                              comparativeStats.yesterdaySales) *
+                              100,
+                            100,
+                          )
+                        : 100
+                    }
+                    max={100}
+                    className={`progress-bar mt-2 ${
+                      stats.totalSales >= comparativeStats.yesterdaySales
+                        ? "progress-green"
+                        : "progress-red"
+                    }`}
+                  />
                 </div>
 
                 {/* This Week vs Last Week */}
@@ -706,27 +703,24 @@ function DashboardContent() {
                     </span>
                     <span>Today: {formatINR(stats.totalSales)}</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        stats.totalSales >= comparativeStats.lastWeekSales / 7
-                          ? "bg-green-500"
-                          : "bg-red-500"
-                      }`}
-                      style={{
-                        width: `${
-                          comparativeStats.lastWeekSales > 0
-                            ? Math.min(
-                                (stats.totalSales /
-                                  (comparativeStats.lastWeekSales / 7)) *
-                                  100,
-                                100,
-                              )
-                            : 100
-                        }%`,
-                      }}
-                    />
-                  </div>
+                  <progress
+                    value={
+                      comparativeStats.lastWeekSales > 0
+                        ? Math.min(
+                            (stats.totalSales /
+                              (comparativeStats.lastWeekSales / 7)) *
+                              100,
+                            100,
+                          )
+                        : 100
+                    }
+                    max={100}
+                    className={`progress-bar mt-2 ${
+                      stats.totalSales >= comparativeStats.lastWeekSales / 7
+                        ? "progress-green"
+                        : "progress-red"
+                    }`}
+                  />
                 </div>
               </div>
             </div>
@@ -795,20 +789,17 @@ function DashboardContent() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-500 h-2 rounded-full"
-                            style={{
-                              width: `${
-                                comparativeStats.peakHours[0]?.sales > 0
-                                  ? (hour.sales /
-                                      comparativeStats.peakHours[0].sales) *
-                                    100
-                                  : 0
-                              }%`,
-                            }}
-                          />
-                        </div>
+                        <progress
+                          value={
+                            comparativeStats.peakHours[0]?.sales > 0
+                              ? (hour.sales /
+                                  comparativeStats.peakHours[0].sales) *
+                                100
+                              : 0
+                          }
+                          max={100}
+                          className="progress-bar progress-blue"
+                        />
                         <span className="text-xs text-gray-500 w-12 text-right">
                           {hour.count} {hour.count === 1 ? "sale" : "sales"}
                         </span>

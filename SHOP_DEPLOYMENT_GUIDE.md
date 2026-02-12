@@ -44,7 +44,7 @@ CRON_SECRET=CrunchyTime2026SecureBackupKey!9xyz
 **Steps:**
 
 1. **Create Vercel Account** (if you haven't already)
-   - Go to https://vercel.com
+   - Go to <https://vercel.com>
    - Sign up with GitHub/GitLab/Bitbucket
 
 2. **Push Code to GitHub** (if not done already)
@@ -84,18 +84,18 @@ CRON_SECRET=CrunchyTime2026SecureBackupKey!9xyz
 #### Step 1: Install Prerequisites
 
 1. **Install Node.js**
-   - Download from: https://nodejs.org/
+   - Download from: <https://nodejs.org/>
    - Choose LTS version (20.x or later)
    - Run installer, accept all defaults
    - Verify: Open PowerShell, type `node --version`
 
 2. **Install Git** (if transferring via Git)
-   - Download from: https://git-scm.com/
+   - Download from: <https://git-scm.com/>
    - Run installer, accept defaults
 
 #### Step 2: Transfer Project Code
 
-**Method 1: Using Git (if pushed to GitHub)**
+### Method 1: Using Git (if pushed to GitHub)
 
 ```powershell
 cd "C:\Users\[ShopComputerUsername]\Documents"
@@ -103,7 +103,7 @@ git clone https://github.com/your-username/crunchy-times.git
 cd crunchy-times
 ```
 
-**Method 2: Using USB Drive**
+### Method 2: Using USB Drive
 
 1. Copy entire project folder from USB to shop computer
 2. Place in `C:\Users\[ShopComputerUsername]\Documents\Crunchy Times`
@@ -140,15 +140,15 @@ Save and close.
 
 #### Step 5: Start the Application
 
-**Option 5A: Manual Start (for testing)**
+### Option 5A: Manual Start (for testing)
 
 ```powershell
 npm run dev
 ```
 
-Then open browser: http://localhost:3000
+Then open browser: <http://localhost:3000>
 
-**Option 5B: Auto-Start on Windows Boot (Recommended for shop)**
+### Option 5B: Auto-Start on Windows Boot (Recommended for shop)
 
 Create a startup script:
 
@@ -168,7 +168,8 @@ start /min cmd /c "npm run dev"
 
 Save and close.
 
-2. **Add to Windows Startup:**
+1. **Copy the startup script** (see above)
+2. **Add to Windows Startup**
 
 - Press `Win + R`
 - Type: `shell:startup`
@@ -177,9 +178,9 @@ Save and close.
 
 Now the app will start automatically when Windows boots!
 
-3. **Verify it's running:**
+1. **Verify it's running**
 
-Open browser and go to: http://localhost:3000
+Open browser and go to: <http://localhost:3000>
 
 ---
 
@@ -187,7 +188,7 @@ Open browser and go to: http://localhost:3000
 
 ### Step 1: Initial Test
 
-1. Open browser: http://localhost:3000 (or your Vercel URL)
+1. Open browser: <http://localhost:3000> (or your Vercel URL)
 2. Log in with your credentials
 3. Open browser Downloads folder (Ctrl + J)
 4. Look for: `CrunchyTime_DailySlip_2026-02-09.xlsx`
@@ -219,13 +220,13 @@ Tomorrow when you first log in:
 
 If you have multiple computers in the shop (counter, kitchen, etc.):
 
-### For Vercel Deployment:
+### For Vercel Deployment
 
 - Just bookmark the Vercel URL on each computer
 - Everyone logs in normally
 - Each user gets ONE backup per day per computer (stored in browser localStorage)
 
-### For Local Installation:
+### For Local Installation
 
 - Install on ONE computer that stays on 24/7 (recommended: main counter PC)
 - Access from other computers on local network:
@@ -332,22 +333,22 @@ npm run dev
 
 ## Maintenance
 
-### Daily:
+### Daily
 
 - Check Downloads folder has today's backup
 - Verify opening balances match yesterday's closing
 
-### Weekly:
+### Weekly
 
 - Move old backups from Downloads to archive folder
 - Verify app is running (if local installation)
 
-### Monthly:
+### Monthly
 
 - Review backup files - ensure no gaps in dates
 - Update Node.js if new version available (for local installation)
 
-### When Adding New Computers:
+### When Adding New Computers
 
 - Just bookmark the URL (Vercel) or IP address (local)
 - No additional setup needed!
@@ -356,7 +357,7 @@ npm run dev
 
 ## Production Best Practices
 
-### Security:
+### Security
 
 1. **Strong passwords:** Ensure all user accounts have strong passwords
 2. **Regular backups:** Keep Daily Slip archives in TWO locations:
@@ -366,7 +367,7 @@ npm run dev
 
 3. **Access control:** Only give admin access to trusted staff
 
-### Performance:
+### Performance
 
 - **Vercel:** Fast worldwide, no maintenance
 - **Local:** Ensure computer has:
@@ -375,7 +376,7 @@ npm run dev
   - Windows 10/11
   - Always-on (disable sleep when plugged in)
 
-### Internet:
+### Internet
 
 - **Vercel:** Requires stable internet
 - **Local:** Can work offline, but Supabase needs internet for data sync

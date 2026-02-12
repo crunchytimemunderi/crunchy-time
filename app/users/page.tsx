@@ -662,6 +662,7 @@ function UsersContent() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingUser?.id === user.id ? (
                           <select
+                            aria-label="Change user role"
                             value={newRole}
                             onChange={(e) =>
                               setNewRole(e.target.value as "admin" | "staff")
@@ -867,6 +868,7 @@ function UsersContent() {
                 <div>
                   <label className="block text-sm font-medium mb-2">Role</label>
                   <select
+                    aria-label="New user role"
                     value={newUser.role}
                     onChange={(e) =>
                       setNewUser({
@@ -1022,6 +1024,7 @@ function UsersContent() {
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
+                          aria-label={perm.label}
                           checked={isEnabled || false}
                           onChange={() =>
                             togglePermission(

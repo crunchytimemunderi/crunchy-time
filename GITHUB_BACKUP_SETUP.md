@@ -18,7 +18,7 @@ git push
 
 Go to your GitHub repository and add these secrets:
 
-1. Go to: `https://github.com/YOUR_USERNAME/YOUR_REPO/settings/secrets/actions`
+1. Go to: <https://github.com/YOUR_USERNAME/YOUR_REPO/settings/secrets/actions>
 2. Click **"New repository secret"** for each of these:
 
 | Secret Name                 | Value                                                                                                                                                                                                                         |
@@ -62,7 +62,7 @@ The backup is currently set to **11:59 PM UTC**. To change it:
 3. Change to your preferred time:
    - `'59 15 * * *'` = 3:59 PM UTC (11:59 PM IST)
    - `'0 0 * * *'` = 12:00 AM UTC
-   - Use https://crontab.guru/ to help create the schedule
+   - Use <https://crontab.guru/> to help create the schedule
 
 ## Monitoring
 

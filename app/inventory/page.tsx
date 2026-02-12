@@ -351,6 +351,7 @@ function InventoryContent() {
                   </label>
                   <input
                     type="text"
+                    aria-label="Item name"
                     value={formData.item_name}
                     onChange={(e) =>
                       setFormData({ ...formData, item_name: e.target.value })
@@ -367,6 +368,7 @@ function InventoryContent() {
                     <div className="flex gap-2">
                       <input
                         type="text"
+                        aria-label="New category"
                         value={newCategory}
                         onChange={(e) => setNewCategory(e.target.value)}
                         placeholder="Enter new category"
@@ -393,6 +395,7 @@ function InventoryContent() {
                   ) : (
                     <div className="flex gap-2">
                       <select
+                        aria-label="Category"
                         value={formData.category}
                         onChange={(e) =>
                           setFormData({ ...formData, category: e.target.value })
@@ -423,6 +426,7 @@ function InventoryContent() {
                   </label>
                   <input
                     type="number"
+                    aria-label="Unit price"
                     step="0.01"
                     value={formData.unit_price}
                     onChange={(e) =>
@@ -439,6 +443,7 @@ function InventoryContent() {
                   </label>
                   <input
                     type="number"
+                    aria-label="Quantity purchased"
                     step="0.01"
                     value={formData.stock_quantity}
                     onChange={(e) =>
@@ -460,6 +465,7 @@ function InventoryContent() {
                     <div className="flex gap-2">
                       <input
                         type="text"
+                        aria-label="New unit"
                         value={newUnit}
                         onChange={(e) => setNewUnit(e.target.value)}
                         placeholder="Enter new unit"
@@ -486,6 +492,7 @@ function InventoryContent() {
                   ) : (
                     <div className="flex gap-2">
                       <select
+                        aria-label="Unit"
                         value={formData.unit}
                         onChange={(e) =>
                           setFormData({ ...formData, unit: e.target.value })

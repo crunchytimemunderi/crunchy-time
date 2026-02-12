@@ -432,6 +432,7 @@ function ReportsContent() {
                 </label>
                 <input
                   type="date"
+                  aria-label="From date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
                   className="border border-gray-300 rounded px-3 py-2 text-gray-900"
@@ -443,6 +444,7 @@ function ReportsContent() {
                 </label>
                 <input
                   type="date"
+                  aria-label="To date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
                   className="border border-gray-300 rounded px-3 py-2 text-gray-900"
@@ -533,12 +535,13 @@ function ReportsContent() {
                       ₹{day.amount.toLocaleString("en-IN")}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all"
-                      style={{ width: `${(day.amount / maxDailySale) * 100}%` }}
-                    ></div>
-                  </div>
+                  <progress
+                    value={
+                      maxDailySale > 0 ? (day.amount / maxDailySale) * 100 : 0
+                    }
+                    max={100}
+                    className="progress-bar progress-green h-3"
+                  />
                 </div>
               ))}
             </div>
@@ -562,12 +565,11 @@ function ReportsContent() {
                           {percentage.toFixed(1)}%)
                         </span>
                       </div>
-                      <div className="w-full bg-gray-700 rounded-full h-3">
-                        <div
-                          className="bg-gradient-to-r from-red-500 to-red-600 h-3 rounded-full transition-all"
-                          style={{ width: `${percentage}%` }}
-                        ></div>
-                      </div>
+                      <progress
+                        value={percentage}
+                        max={100}
+                        className="progress-bar progress-red h-3"
+                      />
                     </div>
                   );
                 })
@@ -598,14 +600,13 @@ function ReportsContent() {
                 <div className="text-gray-600 text-sm">
                   {salesByPayment["cash"]?.count || 0} transactions
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-green-500 h-2 rounded-full"
-                    style={{
-                      width: `${totalSales > 0 ? (totalCashSales / totalSales) * 100 : 0}%`,
-                    }}
-                  ></div>
-                </div>
+                <progress
+                  value={
+                    totalSales > 0 ? (totalCashSales / totalSales) * 100 : 0
+                  }
+                  max={100}
+                  className="progress-bar progress-green mt-2"
+                />
               </div>
               <div className="p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
@@ -617,14 +618,13 @@ function ReportsContent() {
                 <div className="text-gray-600 text-sm">
                   {salesByPayment["upi"]?.count || 0} transactions
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full"
-                    style={{
-                      width: `${totalSales > 0 ? (totalUPISales / totalSales) * 100 : 0}%`,
-                    }}
-                  ></div>
-                </div>
+                <progress
+                  value={
+                    totalSales > 0 ? (totalUPISales / totalSales) * 100 : 0
+                  }
+                  max={100}
+                  className="progress-bar progress-blue mt-2"
+                />
               </div>
               {sales.length === 0 && (
                 <p className="text-gray-600 text-center py-8">

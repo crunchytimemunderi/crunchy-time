@@ -1,6 +1,6 @@
-# Automatic Backup Folder Setup - SIMPLIFIED!
+# Automatic Backup Folder Setup - SIMPLIFIED
 
-## ✅ GOOD NEWS: Folder Created Automatically!
+## ✅ GOOD NEWS - Folder Created Automatically
 
 The system now **automatically creates** a "Crunchy Time Backup" subfolder in your Downloads folder.
 
@@ -22,7 +22,7 @@ The system now **automatically creates** a "Crunchy Time Backup" subfolder in yo
 
 ## Verification Steps
 
-### Test on Shop Computer:
+### Test on Shop Computer
 
 1. Open your Vercel app URL
 2. Log in with your credentials
@@ -190,7 +190,7 @@ Create desktop shortcut the same way as Option B.
 
 I recommend **combining Option A + Option C**:
 
-### Quick Setup Steps:
+### Quick Setup Steps
 
 1. **Set browser download location:**
    - Chrome Settings → Downloads → Change to `C:\CrunchyTimes_Backups\Downloads`

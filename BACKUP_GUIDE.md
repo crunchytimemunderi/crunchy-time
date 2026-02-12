@@ -66,15 +66,15 @@ To automatically upload backups to Google Drive/Dropbox:
 
 ## Troubleshooting
 
-**Error: "Cannot find module"**
+### Error: "Cannot find module"
 
 - Run `npm install` first
 
-**Empty CSV files**
+### Empty CSV files
 
 - Check your `.env.local` file has correct Supabase credentials
 
-**Permission denied**
+### Permission denied
 
 - Run terminal/command prompt as Administrator
 

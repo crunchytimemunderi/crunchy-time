@@ -178,29 +178,7 @@ export default function LoginPage() {
                 className="h-32 w-32 rounded-full object-cover shadow-2xl"
               />
             </div>
-            <h1
-              className="text-5xl md:text-6xl font-black tracking-wider mb-4"
-              style={{
-                fontFamily:
-                  '"Comic Sans MS", "Arial Black", Impact, sans-serif',
-                fontWeight: 900,
-                color: "#FFFFFF",
-                textShadow: `
-                  inset 0px -3px 8px rgba(220, 0, 0, 0.8),
-                  5px 5px 0px #FF0000,
-                  8px 8px 0px #D00000,
-                  12px 12px 0px #880000,
-                  15px 15px 15px rgba(136, 0, 0, 0.5),
-                  -2px -2px 0px #FF0000,
-                  2px -2px 0px #FF0000,
-                  -2px 2px 0px #FF0000,
-                  0px 0px 25px rgba(255, 0, 0, 0.9)
-                `,
-                WebkitTextStroke: "4px #FF0000",
-                paintOrder: "stroke fill",
-                letterSpacing: "0.05em",
-              }}
-            >
+            <h1 className="brand-title text-5xl md:text-6xl mb-4">
               CRUNCHY TIME
             </h1>
             <p className="text-gray-600 dark:text-gray-400 font-medium">
