@@ -302,11 +302,6 @@ function ExpensesContent() {
       return;
     }
 
-    if (!description.trim()) {
-      showMessage("error", "Please enter details");
-      return;
-    }
-
     if (!user || !userData) {
       showMessage("error", "User not authenticated");
       return;
@@ -335,7 +330,24 @@ function ExpensesContent() {
       await fetchExpenses();
     } catch (error) {
       console.error("Error saving expense:", error);
-      showMessage("error", "Failed to save. Try again");
+      let errorMessage = "Failed to save. Try again";
+      if (error instanceof Error && error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === "object" && error) {
+        const supaError = error as {
+          message?: string;
+          details?: string;
+          hint?: string;
+          code?: string;
+        };
+        const parts = [supaError.message, supaError.details, supaError.hint]
+          .filter((part): part is string => typeof part === "string" && part)
+          .join(" | ");
+        if (parts) {
+          errorMessage = supaError.code ? `${supaError.code}: ${parts}` : parts;
+        }
+      }
+      showMessage("error", errorMessage);
     } finally {
       setLoading(false);
     }
