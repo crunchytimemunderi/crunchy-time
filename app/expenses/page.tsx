@@ -341,7 +341,10 @@ function ExpensesContent() {
           code?: string;
         };
         const parts = [supaError.message, supaError.details, supaError.hint]
-          .filter((part): part is string => typeof part === "string" && part.length > 0)
+          .filter(
+            (part): part is string =>
+              typeof part === "string" && part.length > 0,
+          )
           .join(" | ");
         if (parts) {
           errorMessage = supaError.code ? `${supaError.code}: ${parts}` : parts;
@@ -356,10 +359,21 @@ function ExpensesContent() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this expense?")) return;
 
-    const { error } = await supabase.from("expenses").delete().eq("id", id);
-    if (!error) {
-      showMessage("success", "Expense deleted");
-      fetchExpenses();
+    try {
+      const { error } = await supabase.from("expenses").delete().eq("id", id);
+      if (error) {
+        let errorText = error.message || "Failed to delete expense";
+        if (error.code === "PGRST116") {
+          errorText = "Permission denied. You don't have permission to delete expenses.";
+        }
+        showMessage("error", errorText);
+      } else {
+        showMessage("success", "✓ Expense deleted");
+        fetchExpenses();
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      showMessage("error", "Failed to delete. Try again");
     }
   };
 
