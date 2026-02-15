@@ -341,7 +341,7 @@ function ExpensesContent() {
           code?: string;
         };
         const parts = [supaError.message, supaError.details, supaError.hint]
-          .filter((part): part is string => typeof part === "string" && part)
+          .filter((part): part is string => typeof part === "string" && part.length > 0)
           .join(" | ");
         if (parts) {
           errorMessage = supaError.code ? `${supaError.code}: ${parts}` : parts;
