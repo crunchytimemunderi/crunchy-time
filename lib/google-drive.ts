@@ -5,6 +5,7 @@
 import { google } from "googleapis";
 import ExcelJS from "exceljs";
 import { Readable } from "stream";
+import { logger } from "@/lib/logger";
 
 interface Sale {
   id: string;
@@ -361,7 +362,7 @@ export async function uploadToGoogleDrive(data: BackupData) {
     // Convert buffer to stream
     const stream = Readable.from(buffer);
 
-    console.log(
+    logger.debug(
       "📁 Attempting upload to folder:",
       process.env.GOOGLE_DRIVE_FOLDER_ID,
     );
@@ -377,7 +378,7 @@ export async function uploadToGoogleDrive(data: BackupData) {
           supportsAllDrives: true,
         });
 
-        console.log("📂 Folder accessible:", {
+        logger.debug("📂 Folder accessible:", {
           id: folderInfo.data.id,
           name: folderInfo.data.name,
           driveId: folderInfo.data.driveId || "Not in shared drive",
@@ -385,14 +386,14 @@ export async function uploadToGoogleDrive(data: BackupData) {
 
         parentFolder = [process.env.GOOGLE_DRIVE_FOLDER_ID];
       } catch (e: any) {
-        console.log(
+        logger.debug(
           "⚠️ Cannot access folder, will upload to service account root",
         );
-        console.log("Error:", e.message);
+        logger.debug("Error:", e.message);
       }
     }
 
-    console.log(
+    logger.debug(
       "📤 Starting file upload...",
       parentFolder ? "with parent folder" : "to root",
     );
@@ -420,7 +421,7 @@ export async function uploadToGoogleDrive(data: BackupData) {
       fileName: fileName,
     };
   } catch (error: any) {
-    console.error("Error uploading to Google Drive:", error);
+    logger.error("Error uploading to Google Drive:", error);
     return {
       success: false,
       error: error.message,

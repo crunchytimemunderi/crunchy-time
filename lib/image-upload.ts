@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logger } from "./logger";
 
 /**
  * Upload an image file to Supabase Storage
@@ -35,7 +36,7 @@ export async function uploadImage(
       });
 
     if (error) {
-      console.error("Upload error:", error);
+      logger.error("Upload error:", error);
       throw error;
     }
 
@@ -46,7 +47,7 @@ export async function uploadImage(
 
     return publicUrl;
   } catch (error) {
-    console.error("Error uploading image:", error);
+    logger.error("Error uploading image:", error);
     return null;
   }
 }
@@ -61,7 +62,7 @@ export async function deleteImage(imageUrl: string): Promise<boolean> {
     // Extract filename from URL
     const urlParts = imageUrl.split("/menu-images/");
     if (urlParts.length < 2) {
-      console.error("Invalid image URL format");
+      logger.error("Invalid image URL format");
       return false;
     }
 
@@ -72,13 +73,13 @@ export async function deleteImage(imageUrl: string): Promise<boolean> {
       .remove([filePath]);
 
     if (error) {
-      console.error("Delete error:", error);
+      logger.error("Delete error:", error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error("Error deleting image:", error);
+    logger.error("Error deleting image:", error);
     return false;
   }
 }

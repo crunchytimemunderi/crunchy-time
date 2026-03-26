@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { exportToCSV, formatForExport } from "@/lib/export";
-import { notifications } from "@/lib/notifications";
+import { notifications } from "@/lib/notifications"
+import { logger } from "@/lib/logger";
 import { getCurrentDate } from "@/utils/formatting";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -75,7 +76,7 @@ function ExpensesContent() {
       try {
         setCategories(JSON.parse(savedCategories));
       } catch (e) {
-        console.error("Failed to load custom categories", e);
+        logger.error("Failed to load custom categories", e);
       }
     }
   }, []);
@@ -228,19 +229,19 @@ function ExpensesContent() {
 
   // Check if user has permission to view expenses
   useEffect(() => {
-    console.log(
+    logger.debug(
       `🔐 Expenses page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`,
     );
 
     // Wait for auth to finish loading
     if (authLoading) {
-      console.log("⏳ Auth still loading, waiting...");
+      logger.debug("⏳ Auth still loading, waiting...");
       return;
     }
 
     // If user exists but userData not loaded yet, wait
     if (user && !userData) {
-      console.warn(
+      logger.warn(
         "⚠️ userData is null but user exists - waiting for userData to load",
       );
       return;
@@ -248,12 +249,12 @@ function ExpensesContent() {
 
     // Now check permission only if userData is available
     if (userData && !hasPermission("canViewExpenses")) {
-      console.log(
+      logger.debug(
         "❌ No canViewExpenses permission - redirecting to dashboard",
       );
       router.push("/dashboard");
     } else if (userData) {
-      console.log("✅ Expenses access confirmed");
+      logger.debug("✅ Expenses access confirmed");
     }
   }, [userData, user, hasPermission, router, authLoading]);
 
@@ -280,7 +281,7 @@ function ExpensesContent() {
       if (error) throw error;
       if (data) setExpenses(data);
     } catch (error) {
-      console.error("Error fetching expenses:", error);
+      logger.error("Error fetching expenses:", error);
     }
   }, [selectedDate]);
 
@@ -329,7 +330,7 @@ function ExpensesContent() {
       setDescription("");
       await fetchExpenses();
     } catch (error) {
-      console.error("Error saving expense:", error);
+      logger.error("Error saving expense:", error);
       let errorMessage = "Failed to save. Try again";
       if (error instanceof Error && error.message) {
         errorMessage = error.message;
@@ -372,7 +373,7 @@ function ExpensesContent() {
         fetchExpenses();
       }
     } catch (err) {
-      console.error("Delete error:", err);
+      logger.error("Delete error:", err);
       showMessage("error", "Failed to delete. Try again");
     }
   };
@@ -413,7 +414,7 @@ function ExpensesContent() {
         showMessage("success", "✓ Expenses exported!");
         setShowExportDateRange(false);
       } catch (error) {
-        console.error("Error exporting expenses:", error);
+        logger.error("Error exporting expenses:", error);
         showMessage("error", "Failed to export expenses");
       }
     } else {

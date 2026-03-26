@@ -12,7 +12,8 @@ import {
   useKeyboardShortcuts,
   createShortcuts,
 } from "@/lib/keyboard-shortcuts";
-import { notifications } from "@/lib/notifications";
+import { notifications } from "@/lib/notifications"
+import { logger } from "@/lib/logger";
 import { getCurrentDate, toLocalDateString } from "@/utils/formatting";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -286,19 +287,19 @@ function SalesContent() {
 
   // Check permission - Only users with canAddSales permission can access
   useEffect(() => {
-    console.log(
+    logger.debug(
       `🔐 Sales page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`,
     );
 
     // Wait for auth to finish loading
     if (authLoading) {
-      console.log("⏳ Auth still loading, waiting...");
+      logger.debug("⏳ Auth still loading, waiting...");
       return;
     }
 
     // If user exists but userData not loaded yet, wait
     if (user && !userData) {
-      console.warn(
+      logger.warn(
         "⚠️ userData is null but user exists - waiting for userData to load",
       );
       return;
@@ -306,10 +307,10 @@ function SalesContent() {
 
     // Now check permission only if userData is available
     if (userData && !hasPermission("canAddSales")) {
-      console.log("❌ No canAddSales permission - redirecting to dashboard");
+      logger.debug("❌ No canAddSales permission - redirecting to dashboard");
       router.push("/dashboard");
     } else if (userData) {
-      console.log("✅ Sales access confirmed");
+      logger.debug("✅ Sales access confirmed");
     }
   }, [userData, user, hasPermission, router, authLoading]);
 
@@ -327,7 +328,7 @@ function SalesContent() {
 
   const fetchMenuItems = useCallback(async () => {
     try {
-      console.log("🔍 Fetching menu items...");
+      logger.debug("🔍 Fetching menu items...");
       const { data, error } = await supabase
         .from("menu_items")
         .select("*")
@@ -336,13 +337,13 @@ function SalesContent() {
         .limit(100); // Limit for faster load
 
       if (error) {
-        console.error("❌ Menu items error:", error);
+        logger.error("❌ Menu items error:", error);
         return;
       }
-      console.log("✅ Menu items fetched:", data?.length || 0, "items");
+      logger.debug("✅ Menu items fetched:", data?.length || 0, "items");
       if (data) setMenuItems(data);
     } catch (error) {
-      console.error("❌ Error fetching menu items:", error);
+      logger.error("❌ Error fetching menu items:", error);
     }
   }, []);
 
@@ -359,12 +360,12 @@ function SalesContent() {
       if (error) throw error;
       if (data) setSales(data);
     } catch (error) {
-      console.error("Error fetching sales:", error);
+      logger.error("Error fetching sales:", error);
     }
   }, [selectedDate]);
 
   useEffect(() => {
-    console.log("Sales page useEffect - user:", user ? "logged in" : "null");
+    logger.debug("Sales page useEffect - user:", user ? "logged in" : "null");
     if (user && hasPermission("canAddSales")) {
       fetchSales();
       fetchMenuItems();
@@ -461,7 +462,7 @@ function SalesContent() {
         showMessage("error", "Failed to upload image");
       }
     } catch (error) {
-      console.error("Image upload error:", error);
+      logger.error("Image upload error:", error);
       showMessage("error", "Failed to upload image");
     } finally {
       setUploadingImage(false);
@@ -491,7 +492,7 @@ function SalesContent() {
         showMessage("error", "Failed to upload image");
       }
     } catch (error) {
-      console.error("Image upload error:", error);
+      logger.error("Image upload error:", error);
       showMessage("error", "Failed to upload image");
     } finally {
       setEditUploadingImage(false);
@@ -512,7 +513,7 @@ function SalesContent() {
     }
 
     try {
-      console.log(
+      logger.debug(
         "🔍 Adding menu item:",
         newItemName,
         parseFloat(newItemPrice),
@@ -533,11 +534,11 @@ function SalesContent() {
         .select();
 
       if (error) {
-        console.error("❌ Error adding menu item:", error);
+        logger.error("❌ Error adding menu item:", error);
         throw error;
       }
 
-      console.log("✅ Menu item added:", data);
+      logger.debug("✅ Menu item added:", data);
       showMessage("success", `✓ ${newItemName} added to menu!`);
       setNewItemName("");
       setNewItemPrice("");
@@ -547,7 +548,7 @@ function SalesContent() {
       setShowAddItem(false);
       await fetchMenuItems();
     } catch (error: any) {
-      console.error("❌ Failed to add menu item:", error);
+      logger.error("❌ Failed to add menu item:", error);
       const errorMsg = error?.message || error?.hint || JSON.stringify(error);
       showMessage("error", `Failed to add item: ${errorMsg}`);
     }
@@ -590,7 +591,7 @@ function SalesContent() {
       setEditImage("");
       await fetchMenuItems();
     } catch (error: any) {
-      console.error("❌ Failed to update menu item:", error);
+      logger.error("❌ Failed to update menu item:", error);
       const errorMsg = error?.message || error?.hint || JSON.stringify(error);
       showMessage("error", `Failed to update item: ${errorMsg}`);
     }
@@ -602,7 +603,7 @@ function SalesContent() {
     try {
       const { error } = await supabase
         .from("menu_items")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", item.id);
 
       if (error) throw error;
@@ -610,7 +611,7 @@ function SalesContent() {
       showMessage("success", `✓ ${item.name} deleted`);
       await fetchMenuItems();
     } catch (error) {
-      console.error("Error deleting menu item:", error);
+      logger.error("Error deleting menu item:", error);
       showMessage("error", "Failed to delete item");
     }
   };
@@ -673,7 +674,7 @@ function SalesContent() {
         );
         setShowExportDateRange(false);
       } catch (error) {
-        console.error("Error exporting sales:", error);
+        logger.error("Error exporting sales:", error);
         showMessage("error", "Failed to export sales");
       }
     } else {
@@ -728,10 +729,10 @@ function SalesContent() {
     }, 15000);
 
     try {
-      console.log("💾 Attempting to save sale...");
-      console.log("User ID:", user.id);
-      console.log("Amount:", amount);
-      console.log("Description:", description);
+      logger.debug("💾 Attempting to save sale...");
+      logger.debug("User ID:", user.id);
+      logger.debug("Amount:", amount);
+      logger.debug("Description:", description);
 
       const { data, error } = await supabase
         .from("sales")
@@ -748,7 +749,7 @@ function SalesContent() {
       clearTimeout(saveTimeout);
 
       if (error) {
-        console.error("Supabase error:", error);
+        logger.error("Supabase error:", error);
         showMessage(
           "error",
           `Save failed: ${error.message || error.code || "Unknown error"}`,
@@ -762,7 +763,6 @@ function SalesContent() {
       setCart([]);
       clearCart(); // Clear localStorage
       setAmount("");
-      setAmount("");
       setQuantity("1");
       setUnitPrice("");
       setDiscount("");
@@ -775,7 +775,7 @@ function SalesContent() {
       fetchSales().catch(console.error);
     } catch (error) {
       clearTimeout(saveTimeout);
-      console.error("Error saving sale:", error);
+      logger.error("Error saving sale:", error);
       showMessage("error", "Failed to save. Try again");
     } finally {
       setLoading(false);
@@ -808,7 +808,7 @@ function SalesContent() {
   );
   const totalSales = useMemo(() => totalCash + totalUPI, [totalCash, totalUPI]);
 
-  console.log(
+  logger.debug(
     "Sales page render - authLoading:",
     authLoading,
     "user:",

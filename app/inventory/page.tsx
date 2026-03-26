@@ -7,7 +7,8 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { formatINR } from "@/lib/currency";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { notifications } from "@/lib/notifications";
+import { notifications } from "@/lib/notifications"
+import { logger } from "@/lib/logger";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface InventoryItem {
@@ -121,7 +122,7 @@ function InventoryContent() {
       );
       setUnits(Array.from(new Set([...defaultUnits, ...uniqueUnits])));
     } catch (error) {
-      console.error("Error fetching purchase records:", error);
+      logger.error("Error fetching purchase records:", error);
       showMessage("error", "Failed to load purchase records");
     } finally {
       setLoading(false);
@@ -187,7 +188,7 @@ function InventoryContent() {
         showMessage("success", "Item updated successfully!");
       } else {
         // Add new item
-        console.log("Attempting to insert item:", {
+        logger.debug("Attempting to insert item:", {
           item_name: formData.item_name,
           category: formData.category,
           unit_price: parseFloat(formData.unit_price),
@@ -208,7 +209,7 @@ function InventoryContent() {
           ])
           .select();
 
-        console.log("Insert result:", { data, error });
+        logger.debug("Insert result:", { data, error });
 
         if (error) throw error;
         showMessage("success", "Item added successfully!");
@@ -225,7 +226,7 @@ function InventoryContent() {
       setEditingItem(null);
       fetchInventory();
     } catch (error: any) {
-      console.error("Error saving item:", error);
+      logger.error("Error saving item:", error);
       showMessage("error", error.message || "Failed to save item");
     }
   };
@@ -252,7 +253,7 @@ function InventoryContent() {
       showMessage("success", "Item deleted successfully!");
       fetchInventory();
     } catch (error: any) {
-      console.error("Error deleting item:", error);
+      logger.error("Error deleting item:", error);
       showMessage("error", error.message || "Failed to delete item");
     }
   };

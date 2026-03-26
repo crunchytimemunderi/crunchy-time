@@ -14,7 +14,8 @@ import {
 } from "@/utils/formatting";
 import { validateAmount } from "@/utils/validation";
 import { formatINR } from "@/lib/currency";
-import { notifications } from "@/lib/notifications";
+import { notifications } from "@/lib/notifications"
+import { logger } from "@/lib/logger";
 import { validateCashReconciliation } from "@/lib/cash-validation";
 import { exportDailySlip } from "@/lib/daily-slip-export";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -61,11 +62,11 @@ function CashContent() {
       if (!isNaN(dateObj.getTime())) {
         setSelectedDate(newDate);
       } else {
-        console.warn("Invalid date:", newDate);
+        logger.warn("Invalid date:", newDate);
       }
     } else if (newDate === "") {
       // Don't allow empty date, keep current
-      console.warn("Empty date not allowed");
+      logger.warn("Empty date not allowed");
     }
   };
 
@@ -122,26 +123,26 @@ function CashContent() {
 
   // Check permission - Cash reconciliation is admin only
   useEffect(() => {
-    console.log(
+    logger.debug(
       `🔐 Cash page auth check: authLoading=${authLoading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}`,
     );
 
     // Wait for auth to finish loading before checking permissions
     if (!authLoading && user) {
       if (!userData) {
-        console.warn(
+        logger.warn(
           "⚠️ userData is null but auth is loaded and user exists - waiting for userData",
         );
         return; // Don't redirect yet, wait for userData to load
       }
 
       if (!hasAnyPermission(["canViewCash", "canDoCashReconciliation"])) {
-        console.log(
+        logger.debug(
           "❌ User lacks cash permissions - redirecting to dashboard",
         );
         router.push("/dashboard");
       } else {
-        console.log("✅ Cash page access confirmed");
+        logger.debug("✅ Cash page access confirmed");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -312,7 +313,7 @@ function CashContent() {
   useEffect(() => {
     if (!user || authLoading || !selectedDate) return;
 
-    console.log(
+    logger.debug(
       `🔄 Date changed to: ${selectedDate}, fetching history and form data...`,
     );
 
@@ -321,7 +322,7 @@ function CashContent() {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const sevenDaysAgoStr = toLocalDateString(sevenDaysAgo);
 
-      console.log(
+      logger.debug(
         `📅 Fetching reconciliation history from ${sevenDaysAgoStr} to now...`,
       );
 
@@ -334,9 +335,9 @@ function CashContent() {
         .order("date", { ascending: false });
 
       if (error) {
-        console.error("❌ Error fetching reconciliation history:", error);
+        logger.error("❌ Error fetching reconciliation history:", error);
       } else {
-        console.log(`✅ Fetched ${data?.length || 0} reconciliation records`);
+        logger.debug(`✅ Fetched ${data?.length || 0} reconciliation records`);
         const reconciliations = (data || []).map((r) => ({
           id: r.id,
           date: r.date,
@@ -364,12 +365,12 @@ function CashContent() {
         const selectedDateRec = reconciliations.find(
           (r) => r.date === selectedDate,
         );
-        console.log(`� Searching for date ${selectedDate} in history...`);
-        console.log(
+        logger.debug(`� Searching for date ${selectedDate} in history...`);
+        logger.debug(
           `📊 History dates:`,
           reconciliations.map((r) => r.date).join(", "),
         );
-        console.log(
+        logger.debug(
           `📊 Selected date (${selectedDate}):`,
           selectedDateRec ? "✅ FOUND" : "❌ NOT FOUND",
         );
@@ -380,7 +381,7 @@ function CashContent() {
         const previousDate = new Date(selectedDate + "T00:00:00");
         previousDate.setDate(previousDate.getDate() - 1);
         const prevDateStr = toLocalDateString(previousDate);
-        console.log(
+        logger.debug(
           `🔍 Fetching previous day (${prevDateStr}) for opening balance validation...`,
         );
 
@@ -391,7 +392,7 @@ function CashContent() {
           .is("deleted_at", null)
           .maybeSingle();
 
-        console.log(`📦 Previous day (${prevDateStr}) result:`, {
+        logger.debug(`📦 Previous day (${prevDateStr}) result:`, {
           found: !!prevData,
           cash: prevData?.actual_closing_cash,
           upi: prevData?.actual_closing_upi,
@@ -400,13 +401,13 @@ function CashContent() {
 
         // If selected date's reconciliation exists, populate form with SAVED data
         if (selectedDateRec) {
-          console.log(`✅ Loading SAVED data for ${selectedDate}:`);
-          console.log(`   Opening Cash: ${selectedDateRec.openingCash}`);
-          console.log(
+          logger.debug(`✅ Loading SAVED data for ${selectedDate}:`);
+          logger.debug(`   Opening Cash: ${selectedDateRec.openingCash}`);
+          logger.debug(
             `   Actual Closing Cash: ${selectedDateRec.actualClosingCash}`,
           );
-          console.log(`   Opening UPI: ${selectedDateRec.openingUPI}`);
-          console.log(
+          logger.debug(`   Opening UPI: ${selectedDateRec.openingUPI}`);
+          logger.debug(
             `   Actual Closing UPI: ${selectedDateRec.actualClosingUPI}`,
           );
 
@@ -418,16 +419,16 @@ function CashContent() {
               selectedDateRec.openingUPI === prevData.actual_closing_upi;
 
             if (!cashMatches || !upiMatches) {
-              console.warn(
+              logger.warn(
                 `⚠️ MISMATCH DETECTED between saved opening and previous closing:`,
               );
-              console.warn(
+              logger.warn(
                 `   Cash: Saved=${selectedDateRec.openingCash}, Prev=${prevData.actual_closing_cash} ${cashMatches ? "✅" : "❌"}`,
               );
-              console.warn(
+              logger.warn(
                 `   UPI: Saved=${selectedDateRec.openingUPI}, Prev=${prevData.actual_closing_upi} ${upiMatches ? "✅" : "❌"}`,
               );
-              console.warn(
+              logger.warn(
                 `   👉 AUTO-CORRECTING to use previous day's closing balance`,
               );
 
@@ -437,7 +438,7 @@ function CashContent() {
               setOpeningCashEditable(false); // Read-only since auto-corrected
               setOpeningUPIEditable(false);
             } else {
-              console.log(
+              logger.debug(
                 `✅ Opening balances match previous day's closing - all good!`,
               );
               setOpeningCash(selectedDateRec.openingCash.toString());
@@ -447,7 +448,7 @@ function CashContent() {
             }
           } else {
             // No previous day data, use saved opening as-is
-            console.log(
+            logger.debug(
               `ℹ️ No previous day data found, using saved opening balances`,
             );
             setOpeningCash(selectedDateRec.openingCash.toString());
@@ -461,21 +462,21 @@ function CashContent() {
           setActualUPI(selectedDateRec.actualClosingUPI.toString());
           setUpiNotes(selectedDateRec.upiNotes || "");
 
-          console.log(`✅ Form populated with saved reconciliation data`);
+          logger.debug(`✅ Form populated with saved reconciliation data`);
         } else {
-          console.log(
+          logger.debug(
             `� No existing data for ${selectedDate}, fetching PREVIOUS day's closing...`,
           );
-          console.log(
+          logger.debug(
             `📦 No existing data for ${selectedDate}, using previous day's closing as opening...`,
           );
 
           if (prevData && !prevError) {
-            console.log(`✅ Using previous day's CLOSING as today's OPENING:`);
-            console.log(
+            logger.debug(`✅ Using previous day's CLOSING as today's OPENING:`);
+            logger.debug(
               `   Previous Closing Cash (${prevDateStr}): ${prevData.actual_closing_cash} → Opening Cash (${selectedDate})`,
             );
-            console.log(
+            logger.debug(
               `   Previous Closing UPI (${prevDateStr}): ${prevData.actual_closing_upi} → Opening UPI (${selectedDate})`,
             );
 
@@ -486,7 +487,7 @@ function CashContent() {
             setOpeningCashEditable(false);
             setOpeningUPIEditable(false);
 
-            console.log(
+            logger.debug(
               `✅ Set opening balances from previous day's closing (read-only)`,
             );
 
@@ -495,13 +496,13 @@ function CashContent() {
             setCashNotes("");
             setActualUPI("");
             setUpiNotes("");
-            console.log(`🆕 Cleared actual cash/UPI and notes for new entry`);
+            logger.debug(`🆕 Cleared actual cash/UPI and notes for new entry`);
           } else {
-            console.log(
+            logger.debug(
               `🆕 No previous data found for ${prevDateStr}, starting fresh with empty fields`,
             );
             if (prevError)
-              console.error("❌ Previous day query error:", prevError);
+              logger.error("❌ Previous day query error:", prevError);
 
             // Clear all fields for fresh start
             setOpeningCash("");
@@ -557,7 +558,7 @@ function CashContent() {
               createdBy: r.created_by,
               createdByName: r.created_by_name,
             }));
-            console.log(
+            logger.debug(
               `🔔 Realtime update received: ${reconciliations.length} records in history`,
             );
             setHistory(reconciliations);
@@ -565,7 +566,7 @@ function CashContent() {
             const selectedDateRec = reconciliations.find(
               (r) => r.date === selectedDate,
             );
-            console.log(
+            logger.debug(
               `🔔 Realtime: Current selected date is ${selectedDate}, found in updated history:`,
               !!selectedDateRec,
             );
@@ -573,7 +574,7 @@ function CashContent() {
 
             // Update form ONLY if data exists for currently selected date
             if (selectedDateRec) {
-              console.log(
+              logger.debug(
                 `🔄 Realtime: Updating form for ${selectedDate} with saved data`,
               );
               setOpeningCash(selectedDateRec.openingCash.toString());
@@ -586,7 +587,7 @@ function CashContent() {
               setOpeningCashEditable(true);
               setOpeningUPIEditable(true);
             } else {
-              console.log(
+              logger.debug(
                 `🔔 Realtime: No data for ${selectedDate} in realtime update, keeping current form state`,
               );
             }
@@ -715,13 +716,13 @@ function CashContent() {
         .maybeSingle();
 
       if (checkError) {
-        console.error("Error checking existing record:", checkError);
+        logger.error("Error checking existing record:", checkError);
       }
 
       if (existingRec || todayReconciliation) {
         // Update existing reconciliation
         const recordId = existingRec?.id || todayReconciliation?.id;
-        console.log(
+        logger.debug(
           `🔄 UPDATING existing record ID: ${recordId} for date: ${selectedDate}`,
         );
         const { error } = await supabase
@@ -737,7 +738,7 @@ function CashContent() {
         );
       } else {
         // Create new reconciliation
-        console.log(`➕ INSERTING new record for date: ${selectedDate}`);
+        logger.debug(`➕ INSERTING new record for date: ${selectedDate}`);
         const { error } = await supabase
           .from("cash_reconciliation")
           .insert([reconciliationData]);
@@ -763,7 +764,7 @@ function CashContent() {
         .order("date", { ascending: false });
 
       if (historyData) {
-        console.log(`💾 Refetched ${historyData.length} records after save`);
+        logger.debug(`💾 Refetched ${historyData.length} records after save`);
         const reconciliations = historyData.map((r) => ({
           id: r.id,
           date: r.date,
@@ -788,22 +789,22 @@ function CashContent() {
         setHistory(reconciliations);
         const updatedRec =
           reconciliations.find((r) => r.date === selectedDate) || null;
-        console.log(
+        logger.debug(
           `📊 After save - Dates in history:`,
           reconciliations.map((r) => r.date).join(", "),
         );
-        console.log(
+        logger.debug(
           `✅ After save - Current date (${selectedDate}):`,
           updatedRec ? "✅ FOUND & SAVED" : "❌ ERROR - NOT FOUND",
         );
 
         if (updatedRec) {
-          console.log(`   Saved Opening Cash: ${updatedRec.openingCash}`);
-          console.log(
+          logger.debug(`   Saved Opening Cash: ${updatedRec.openingCash}`);
+          logger.debug(
             `   Saved Actual Closing Cash: ${updatedRec.actualClosingCash}`,
           );
-          console.log(`   Saved Opening UPI: ${updatedRec.openingUPI}`);
-          console.log(
+          logger.debug(`   Saved Opening UPI: ${updatedRec.openingUPI}`);
+          logger.debug(
             `   Saved Actual Closing UPI: ${updatedRec.actualClosingUPI}`,
           );
         }
@@ -812,7 +813,7 @@ function CashContent() {
 
         // Populate form with saved data to show it persists
         if (updatedRec) {
-          console.log(`💾 Form repopulated after save for ${selectedDate}`);
+          logger.debug(`💾 Form repopulated after save for ${selectedDate}`);
           setOpeningCash(updatedRec.openingCash.toString());
           setActualCash(updatedRec.actualClosingCash.toString());
           setCashNotes(updatedRec.notes || "");
@@ -823,13 +824,13 @@ function CashContent() {
           setOpeningCashEditable(true);
           setOpeningUPIEditable(true);
         } else {
-          console.error(
+          logger.error(
             `❌ ERROR: Saved data not found in refetched history for ${selectedDate}`,
           );
         }
       }
     } catch (error: any) {
-      console.error("Error saving reconciliation:", error);
+      logger.error("Error saving reconciliation:", error);
       showMessage(
         "error",
         error.message || "Failed to save reconciliation. Please try again.",
@@ -886,7 +887,7 @@ function CashContent() {
         "Daily slip downloaded successfully",
       );
     } catch (error: any) {
-      console.error("Error exporting daily slip:", error);
+      logger.error("Error exporting daily slip:", error);
       showMessage("error", "Failed to export daily slip");
       notifications.error(
         "Export Failed",
@@ -925,7 +926,7 @@ function CashContent() {
         setUpiNotes("");
       }
     } catch (error: any) {
-      console.error("Error deleting reconciliation:", error);
+      logger.error("Error deleting reconciliation:", error);
       showMessage("error", "Failed to delete reconciliation");
     }
   };

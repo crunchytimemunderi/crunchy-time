@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase"
+import { logger } from "@/lib/logger";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/lib/auth-context";
@@ -304,7 +305,7 @@ function ReportsContent() {
         totalUPISales,
       });
     } catch (error) {
-      console.error("Error exporting Excel:", error);
+      logger.error("Error exporting Excel:", error);
       alert("Failed to export Excel report");
     }
   };
@@ -327,7 +328,7 @@ function ReportsContent() {
         totalUPISales,
       });
     } catch (error) {
-      console.error("Error exporting PDF:", error);
+      logger.error("Error exporting PDF:", error);
       alert("Failed to export PDF report");
     }
   };

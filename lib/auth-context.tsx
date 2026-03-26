@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
+import { logger } from "@/lib/logger";
 
 export type UserRole = "admin" | "staff";
 
@@ -59,10 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (data) {
         localStorage.setItem("cached_user_data", JSON.stringify(data));
-        console.log("💾 userData cached to localStorage");
+        logger.debug("💾 userData cached to localStorage");
       }
     } catch (e) {
-      console.warn("Failed to cache userData", e);
+      logger.warn("Failed to cache userData", e);
     }
   };
 
@@ -72,11 +73,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const cached = localStorage.getItem("cached_user_data");
       if (cached) {
         const data = JSON.parse(cached) as UserData;
-        console.log("📂 Loaded cached userData:", data.role);
+        logger.debug("📂 Loaded cached userData:", data.role);
         return data;
       }
     } catch (e) {
-      console.warn("Failed to load cached userData", e);
+      logger.warn("Failed to load cached userData", e);
     }
     return null;
   };
@@ -105,12 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ])) as any;
 
       if (error) {
-        console.error("❌ Database error:", error);
+        logger.error("❌ Database error:", error);
         return null;
       }
 
       if (!data) {
-        console.error("❌ No user found in database for ID:", uid);
+        logger.error("❌ No user found in database for ID:", uid);
         return null;
       }
 
@@ -123,12 +124,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
-        console.warn(
+        logger.warn(
           "⏰ Database connection slow - This is expected on slower networks. App will continue to work.",
         );
         // Don't throw, just return null to allow offline mode
       } else {
-        console.error("❌ Fatal error in fetchUserData:", error);
+        logger.error("❌ Fatal error in fetchUserData:", error);
       }
       return null;
     }
@@ -141,14 +142,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Load cached userData immediately if available
     const cachedUserData = loadUserDataFromCache();
     if (cachedUserData) {
-      console.log("⚡ Using cached userData while verifying session");
+      logger.debug("⚡ Using cached userData while verifying session");
       setUserData(cachedUserData);
     }
 
     // Force loading off after 40 seconds max (increased for slow connections)
     const timeout = setTimeout(() => {
       if (mounted) {
-        console.warn("⏰ Auth loading timeout reached - proceeding anyway");
+        logger.warn("⏰ Auth loading timeout reached - proceeding anyway");
         setLoading(false);
       }
     }, 40000);
@@ -170,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUserData(userData);
             saveUserDataToCache(userData);
             if (userData?.role) {
-              document.cookie = `userRole=${userData.role}; path=/; max-age=604800`;
+              document.cookie = `userRole=${userData.role}; path=/; max-age=604800; SameSite=Lax; Secure`;
             }
             // Mark that user was authenticated - this persists forever
             try {
@@ -194,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch((err) => {
-        console.error("Auth error:", err);
+        logger.error("Auth error:", err);
         if (mounted) {
           clearTimeout(timeout);
           setLoading(false);
@@ -207,31 +208,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      console.log(
+      logger.debug(
         `🔄 Auth state change: event=${event}, hasSession=${!!session}`,
       );
 
       if (event === "SIGNED_OUT") {
-        console.log("👋 User signed out - clearing all cached data");
+        logger.debug("👋 User signed out - clearing all cached data");
         setUser(null);
         setUserData(null);
         setLoading(false);
-        document.cookie = "userRole=; path=/; max-age=0";
+        document.cookie = "userRole=; path=/; max-age=0; SameSite=Lax; Secure";
         // Clear all cached data on sign out
         try {
           localStorage.removeItem("was_authenticated");
           localStorage.removeItem("cached_user_data");
         } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
-        console.log("👍 User signed in, fetching userData");
+        logger.debug("👍 User signed in, fetching userData");
         setUser(session.user);
         const data = await fetchUserData(session.user.id);
         if (mounted && data) {
           setUserData(data);
           saveUserDataToCache(data);
-          console.log(`✅ userData set and cached: role=${data.role}`);
+          logger.debug(`✅ userData set and cached: role=${data.role}`);
           if (data.role) {
-            document.cookie = `userRole=${data.role}; path=/; max-age=604800`;
+            document.cookie = `userRole=${data.role}; path=/; max-age=604800; SameSite=Lax; Secure`;
           }
           // Set the persistent flag
           try {
@@ -254,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log("🔔 Setting up real-time listener for user data changes");
+    logger.debug("🔔 Setting up real-time listener for user data changes");
 
     const channel = supabase
       .channel(`user-${user.id}`)
@@ -267,18 +268,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           filter: `id=eq.${user.id}`,
         },
         async (payload) => {
-          console.log("🔄 User data changed, refreshing...", payload.new);
+          logger.debug("🔄 User data changed, refreshing...", payload.new);
 
           // Refetch user data
           const freshData = await fetchUserData(user.id);
           if (freshData) {
             setUserData(freshData);
             saveUserDataToCache(freshData);
-            console.log("✅ User data refreshed with new permissions/role");
+            logger.debug("✅ User data refreshed with new permissions/role");
 
             // Update role cookie
             if (freshData.role) {
-              document.cookie = `userRole=${freshData.role}; path=/; max-age=604800`;
+              document.cookie = `userRole=${freshData.role}; path=/; max-age=604800; SameSite=Lax; Secure`;
             }
           }
         },
@@ -286,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .subscribe();
 
     return () => {
-      console.log("🔕 Cleaning up real-time listener");
+      logger.debug("🔕 Cleaning up real-time listener");
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
@@ -301,7 +302,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
       if (authError) {
-        console.error("Auth error:", authError);
+        logger.error("Auth error:", authError);
         throw authError;
       }
 
@@ -339,14 +340,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       // Store role in cookie for middleware
-      document.cookie = `userRole=${data.role}; path=/; max-age=604800`; // 7 days
+      document.cookie = `userRole=${data.role}; path=/; max-age=604800; SameSite=Lax; Secure`; // 7 days
     } catch (error: any) {
-      console.error("Sign in error:", error);
+      logger.error("Sign in error:", error);
       // Clear states on error
       setUser(null);
       setUserData(null);
       setLoading(false);
-      document.cookie = "userRole=; path=/; max-age=0";
+      document.cookie = "userRole=; path=/; max-age=0; SameSite=Lax; Secure";
       try {
         localStorage.removeItem("cached_user_data");
       } catch (e) {}
@@ -365,19 +366,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserData(null);
 
       // Clear cookie
-      document.cookie = "userRole=; path=/; max-age=0";
+      document.cookie = "userRole=; path=/; max-age=0; SameSite=Lax; Secure";
 
       // Clear all localStorage items
       try {
         localStorage.removeItem("supabase.auth.token");
         localStorage.removeItem("cached_user_data");
         localStorage.removeItem("was_authenticated");
-        console.log("🧹 Cleared all cached auth data");
+        logger.debug("🧹 Cleared all cached auth data");
       } catch (e) {
-        console.warn("Failed to clear localStorage", e);
+        logger.warn("Failed to clear localStorage", e);
       }
     } catch (error) {
-      console.error("Error signing out:", error);
+      logger.error("Error signing out:", error);
       throw error;
     }
   };

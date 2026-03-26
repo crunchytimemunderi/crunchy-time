@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { logger } from "@/lib/logger";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -24,39 +25,39 @@ export default function ProtectedRoute({
   }, []);
 
   useEffect(() => {
-    console.log(
+    logger.debug(
       `🔍 ProtectedRoute useEffect: loading=${loading}, user=${!!user}, userData=${!!userData}, role=${userData?.role}, requiredRole=${requiredRole}`,
     );
 
     if (!loading) {
       // Not logged in - redirect to login
       if (!user) {
-        console.log("🔒 No user - redirecting to login");
+        logger.debug("🔒 No user - redirecting to login");
         router.push("/login");
         return;
       }
 
       // If user exists but userData is not loaded yet, wait
       if (user && !userData) {
-        console.log("⏳ User exists but userData not loaded yet - waiting");
+        logger.debug("⏳ User exists but userData not loaded yet - waiting");
         return;
       }
 
       // Check role requirement only if userData is available
       if (requiredRole && userData) {
-        console.log(
+        logger.debug(
           `🔍 Checking role: required=${requiredRole}, actual=${userData.role}`,
         );
 
         // Admin can access everything
         if (userData.role === "admin") {
-          console.log("✅ Admin access granted");
+          logger.debug("✅ Admin access granted");
           return;
         }
 
         // Staff can only access staff-level routes
         if (requiredRole === "admin" && userData.role === "staff") {
-          console.log(
+          logger.debug(
             "❌ Staff trying to access admin page - redirecting to dashboard",
           );
           router.push("/dashboard"); // Redirect staff away from admin pages

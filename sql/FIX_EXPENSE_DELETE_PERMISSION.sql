@@ -25,7 +25,7 @@ CREATE POLICY "Can delete expenses if admin or has permission"
     );
 
 -- Verify policy is in place
-SELECT policy_name, roles, qual, with_check 
+SELECT policyname, roles, qual, with_check 
 FROM pg_policies 
 WHERE tablename = 'expenses' AND cmd = 'DELETE';
 
