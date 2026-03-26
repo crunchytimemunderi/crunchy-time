@@ -5,6 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import { createClient } from "@supabase/supabase-js";
 import ExcelJS from "exceljs";
 
@@ -13,13 +15,20 @@ export const maxDuration = 60; // 60 seconds timeout
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limit: 10 requests per 15 minutes
+    const rl = checkRateLimit(request, "daily-backup", {
+      maxAttempts: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
     // Check authorization - either CRON_SECRET or authenticated admin user
     const authHeader = request.headers.get("authorization");
     const isCronRequest = authHeader === `Bearer ${process.env.CRON_SECRET}`;
     const hasAuthToken = authHeader?.startsWith("Bearer ") && !isCronRequest;
 
     if (!isCronRequest && !hasAuthToken) {
-      console.log("❌ No valid authorization header");
+      logger.debug("❌ No valid authorization header");
       return NextResponse.json(
         { error: "Unauthorized - Missing authorization" },
         { status: 401 },
@@ -28,8 +37,8 @@ export async function GET(request: NextRequest) {
 
     if (hasAuthToken) {
       // Manual trigger with Bearer token - verify user is admin
-      console.log("========== BACKUP API DEBUG ==========");
-      console.log("🔑 Auth token provided, verifying...");
+      logger.debug("========== BACKUP API DEBUG ==========");
+      logger.debug("🔑 Auth token provided, verifying...");
 
       const token = authHeader!.replace("Bearer ", "");
 
@@ -46,14 +55,14 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser(token);
 
       if (authError || !user) {
-        console.log("❌ Invalid token:", authError?.message);
+        logger.debug("❌ Invalid token:", authError?.message);
         return NextResponse.json(
           { error: "Unauthorized - Invalid token" },
           { status: 401 },
         );
       }
 
-      console.log("✅ User authenticated:", user.id);
+      logger.debug("✅ User authenticated:", user.id);
 
       // Check if user is admin using service role client
       const supabaseAdmin = createClient(
@@ -67,18 +76,18 @@ export async function GET(request: NextRequest) {
         .eq("id", user.id)
         .single();
 
-      console.log("👤 User role:", userData?.role || "not found");
+      logger.debug("👤 User role:", userData?.role || "not found");
 
       if (userError || !userData || userData.role !== "admin") {
-        console.log("❌ Access denied - not admin");
+        logger.debug("❌ Access denied - not admin");
         return NextResponse.json(
           { error: "Unauthorized - Admin only" },
           { status: 403 },
         );
       }
 
-      console.log("✅✅ Admin access granted! Starting backup...");
-      console.log("=====================================");
+      logger.debug("✅✅ Admin access granted! Starting backup...");
+      logger.debug("=====================================");
     }
 
     // Initialize Supabase client with service role key for data operations
@@ -152,7 +161,7 @@ export async function GET(request: NextRequest) {
       totalUPISales,
     });
 
-    console.log(`✅ Backup generated: ${fileName}`);
+    logger.debug(`✅ Backup generated: ${fileName}`);
 
     // Return the Excel file for download
     // Convert Buffer to Uint8Array for NextResponsecompat
@@ -174,7 +183,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Daily backup error:", error);
+    logger.error("Daily backup error:", error);
     return NextResponse.json(
       {
         error: error.message,

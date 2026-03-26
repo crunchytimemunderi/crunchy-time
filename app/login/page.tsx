@@ -1,45 +1,89 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
 
   const router = useRouter();
   const { signIn, user } = useAuth();
 
-  // Function to trigger daily backup on login
-  const triggerDailyBackup = async () => {
+  // Restore lockout state from sessionStorage
+  useEffect(() => {
     try {
-      // Check if backup already done today
-      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const stored = sessionStorage.getItem("loginLockout");
+      if (stored) {
+        const { until, attempts } = JSON.parse(stored);
+        if (until && until > Date.now()) {
+          setLockedUntil(until);
+          setLoginAttempts(attempts || MAX_LOGIN_ATTEMPTS);
+        } else {
+          sessionStorage.removeItem("loginLockout");
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  // Lockout countdown timer
+  useEffect(() => {
+    if (!lockedUntil) {
+      setLockoutRemaining(0);
+      return;
+    }
+
+    const update = () => {
+      const remaining = Math.max(0, lockedUntil - Date.now());
+      setLockoutRemaining(remaining);
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        setLoginAttempts(0);
+        sessionStorage.removeItem("loginLockout");
+      }
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [lockedUntil]);
+
+  // Function to trigger daily backup on login
+  const triggerDailyBackup = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
       const lastBackupDate = localStorage.getItem("lastBackupDate");
 
       if (lastBackupDate === today) {
-        console.log("📦 Backup already downloaded today, skipping...");
+        logger.debug("📦 Backup already downloaded today, skipping...");
         return;
       }
 
-      console.log("📥 Triggering daily backup download...");
+      logger.debug("📥 Triggering daily backup download...");
 
-      // Get session token
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session) {
-        console.log("⚠️ No session found, skipping backup");
+        logger.debug("⚠️ No session found, skipping backup");
         return;
       }
 
-      // Call backup API
       const response = await fetch("/api/cron/daily-backup", {
         method: "GET",
         headers: {
@@ -48,45 +92,39 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        // Download the file
         const blob = await response.blob();
         const statsHeader = response.headers.get("X-Backup-Stats");
 
-        // Create download link
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
 
-        // Get filename from Content-Disposition header
         const contentDisposition = response.headers.get("Content-Disposition");
         const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
         const fileName = filenameMatch
           ? filenameMatch[1]
           : `CrunchyTime_Backup_${new Date().toISOString().split("T")[0]}.xlsx`;
 
-        // Download to "Crunchy Time Backup" subfolder in Downloads
         a.download = `Crunchy Time Backup/${fileName}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
 
-        // Save today's date to prevent duplicate downloads
         localStorage.setItem("lastBackupDate", today);
 
-        console.log("✅ Daily backup downloaded successfully:", fileName);
+        logger.debug("✅ Daily backup downloaded successfully:", fileName);
         if (statsHeader) {
           const stats = JSON.parse(statsHeader);
-          console.log("📊 Backup stats:", stats);
+          logger.debug("📊 Backup stats:", stats);
         }
       } else {
-        console.log("⚠️ Backup download failed:", response.status);
+        logger.debug("⚠️ Backup download failed:", response.status);
       }
     } catch (err) {
-      console.error("❌ Error downloading backup:", err);
-      // Don't block login if backup fails
+      logger.error("❌ Error downloading backup:", err);
     }
-  };
+  }, []);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -95,58 +133,91 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
+  const isLockedOut = lockedUntil !== null && lockedUntil > Date.now();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Check lockout
+    if (isLockedOut) {
+      const secs = Math.ceil(lockoutRemaining / 1000);
+      setError(`Too many failed attempts. Try again in ${secs} seconds.`);
+      return;
+    }
+
     setLoading(true);
 
-    // Add timeout
     const timeoutId = setTimeout(() => {
       setError(
         "Login is taking too long. Please refresh the page and try again.",
       );
       setLoading(false);
-    }, 15000); // 15 second timeout
+    }, 15000);
 
     try {
       let loginEmail = "";
 
-      // Check if input is an email or username
       if (username.includes("@")) {
-        // User entered email - use it directly
-        console.log("Attempting login with email:", username);
+        logger.debug("Attempting login with email:", username);
         loginEmail = username.toLowerCase();
       } else {
-        // User entered username - convert to dummy email
-        console.log("Attempting login with username:", username);
+        logger.debug("Attempting login with username:", username);
         const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, "");
         loginEmail = `${cleanUsername}@crunchy-times.local`;
       }
 
       await signIn(loginEmail, password);
       clearTimeout(timeoutId);
-      console.log("✅ Login successful, auth state set");
+      logger.debug("✅ Login successful, auth state set");
+
+      // Reset attempts on success
+      setLoginAttempts(0);
+      setLockedUntil(null);
+      sessionStorage.removeItem("loginLockout");
 
       // Trigger daily backup automatically (non-blocking)
       triggerDailyBackup().catch((err) =>
-        console.log("Backup trigger failed:", err),
+        logger.debug("Backup trigger failed:", err),
       );
 
-      // Wait a bit for auth state to update, then redirect
       setTimeout(() => {
-        console.log("🔄 Redirecting to dashboard...");
+        logger.debug("🔄 Redirecting to dashboard...");
         router.push("/dashboard");
-        router.refresh(); // Force refresh to ensure state is updated
+        router.refresh();
       }, 100);
     } catch (err: any) {
       clearTimeout(timeoutId);
       setLoading(false);
-      console.error("Login error:", err);
-      // Handle different Supabase error codes
+      logger.error("Login error:", err);
+
+      // Increment failed attempts
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+
+      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_DURATION_MS;
+        setLockedUntil(until);
+        try {
+          sessionStorage.setItem(
+            "loginLockout",
+            JSON.stringify({ until, attempts: newAttempts }),
+          );
+        } catch {
+          // Ignore storage errors
+        }
+        setError(
+          "Too many failed login attempts. Please wait 2 minutes before trying again.",
+        );
+        return;
+      }
+
+      // Build error message with remaining attempts
+      const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
       let errorMessage = "Failed to login. Please try again.";
 
       if (err.message?.includes("Invalid login credentials")) {
-        errorMessage = "Invalid email/username or password.";
+        errorMessage = `Invalid email/username or password. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`;
       } else if (err.message?.includes("Email not confirmed")) {
         errorMessage = "Account not confirmed. Please contact administrator.";
       } else if (err.message?.includes("User data not found")) {
@@ -156,11 +227,10 @@ export default function LoginPage() {
         errorMessage =
           "Login timed out. Please check your internet connection and try again.";
       } else if (err.message) {
-        errorMessage = err.message;
+        errorMessage = `${err.message} (${remaining} attempt${remaining !== 1 ? "s" : ""} remaining)`;
       }
 
       setError(errorMessage);
-      setLoading(false);
     }
   };
 
@@ -192,6 +262,23 @@ export default function LoginPage() {
             </div>
           )}
 
+          {isLockedOut && (
+            <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md text-center">
+              <p className="text-orange-700 dark:text-orange-400 text-sm font-medium">
+                🔒 Account locked for{" "}
+                {Math.ceil(lockoutRemaining / 1000)} seconds
+              </p>
+              <div className="mt-2 w-full bg-orange-200 dark:bg-orange-800 rounded-full h-2">
+                <div
+                  className="bg-orange-500 h-2 rounded-full transition-all duration-1000"
+                  style={{
+                    width: `${(lockoutRemaining / LOCKOUT_DURATION_MS) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label
@@ -208,7 +295,7 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 bg-white dark:bg-gray-700"
                 placeholder="username or email@example.com"
                 required
-                disabled={loading}
+                disabled={loading || isLockedOut}
                 autoComplete="username"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -231,16 +318,20 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 bg-white dark:bg-gray-700"
                 placeholder="••••••••"
                 required
-                disabled={loading}
+                disabled={loading || isLockedOut}
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isLockedOut}
               className="w-full bg-red-600 text-white py-3 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-bold text-lg"
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {isLockedOut
+                ? "🔒 Locked"
+                : loading
+                  ? "Signing in..."
+                  : "Sign In"}
             </button>
           </form>
 
