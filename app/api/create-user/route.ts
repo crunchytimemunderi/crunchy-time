@@ -1,113 +1,58 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
-
-// Create admin client with service role key
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  },
-);
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { apiResponse, verifyAdminToken } from "@/lib/api-response";
+import { supabaseAdmin } from "@/utils/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit: 5 requests per 15 minutes
+    // Rate limit: 5 requests per 15 minutes per IP
     const rl = checkRateLimit(request, "create-user", {
       maxAttempts: 5,
       windowMs: 15 * 60 * 1000,
     });
-    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+    if (!rl.allowed) return apiResponse.tooManyRequests(rl.retryAfterMs);
 
-    // ─── Auth check: require admin ───
+    // Verify caller is an authenticated admin
     const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized - No token provided" },
-        { status: 401 },
-      );
-    }
-
-    const token = authHeader.substring(7);
-
-    // Verify the requesting user's token
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      },
-    );
-
-    const {
-      data: { user: requestingUser },
-      error: authError,
-    } = await supabaseClient.auth.getUser(token);
-
-    if (authError || !requestingUser) {
-      return NextResponse.json(
-        { error: "Unauthorized - Invalid token" },
-        { status: 401 },
-      );
-    }
-
-    // Check admin role
-    const { data: adminCheck, error: adminError } = await supabaseAdmin
-      .from("users")
-      .select("role")
-      .eq("id", requestingUser.id)
-      .single();
-
-    if (adminError || !adminCheck || adminCheck.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden - Admin access required" },
-        { status: 403 },
-      );
-    }
-    // ─── End auth check ───
+    await verifyAdminToken(authHeader);
 
     const { username, password, display_name, role } = await request.json();
 
-    // Validate inputs
     if (!username || !password || !display_name || !role) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
+      return apiResponse.badRequest("Missing required fields");
     }
 
-    // Generate email
+    if (username.length < 3) {
+      return apiResponse.badRequest("Username must be at least 3 characters");
+    }
+
+    if (password.length < 6) {
+      return apiResponse.badRequest("Password must be at least 6 characters");
+    }
+
+    if (!["admin", "staff"].includes(role)) {
+      return apiResponse.badRequest("Role must be 'admin' or 'staff'");
+    }
+
+    // Generate synthetic email for Supabase Auth
     const email = `${username}@crunchy-times.local`;
 
-    // Create user with admin client (no session created)
+    // Create auth user (no session created) using admin client
     const { data: authData, error: createAuthError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // Auto-confirm
-        user_metadata: {
-          display_name,
-          username,
-        },
+        email_confirm: true,
+        user_metadata: { display_name, username },
       });
 
     if (createAuthError) {
-      return NextResponse.json(
-        { error: createAuthError.message },
-        { status: 400 },
-      );
+      return apiResponse.badRequest(createAuthError.message);
     }
 
     if (!authData.user) {
-      return NextResponse.json(
-        { error: "Failed to create auth user" },
-        { status: 500 },
-      );
+      return apiResponse.serverError("Failed to create auth user");
     }
 
     // Insert into users table
@@ -120,26 +65,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (dbError) {
-      // Rollback: delete auth user if users table insert fails
+      // Rollback: delete auth user if DB insert fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return NextResponse.json({ error: dbError.message }, { status: 400 });
+      return apiResponse.badRequest(dbError.message);
     }
 
-    return NextResponse.json({
+    return apiResponse.ok({
       success: true,
-      user: {
-        id: authData.user.id,
-        username,
-        email,
-        display_name,
-        role,
-      },
+      user: { id: authData.user.id, username, email, display_name, role },
     });
-  } catch (error: any) {
-    logger.error("Error creating user:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to create user" },
-      { status: 500 },
-    );
+  } catch (err: unknown) {
+    // verifyAdminToken throws a NextResponse on auth failures
+    if (err instanceof NextResponse) return err;
+    logger.error("Error creating user:", err);
+    return apiResponse.serverError("Failed to create user", err);
   }
 }

@@ -18,10 +18,13 @@ export default function LoadingSpinner({
   };
 
   const spinner = (
-    <div className="flex flex-col items-center justify-center gap-3">
+    <div className="flex flex-col items-center justify-center gap-4">
       <div
-        className={`${sizeClasses[size]} border-red-500 rounded-full animate-spin`}
-      ></div>
+        className={`${sizeClasses[size]} flex items-center justify-center text-4xl animate-spin`}
+        style={{ animationDuration: '1s' }}
+      >
+        🍗
+      </div>
       {text && (
         <p className="text-slate-300 dark:text-slate-400 text-sm font-medium">
           {text}

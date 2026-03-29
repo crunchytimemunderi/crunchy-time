@@ -330,7 +330,7 @@ export default function LoginPage() {
               {isLockedOut
                 ? "🔒 Locked"
                 : loading
-                  ? "Signing in..."
+                  ? <span className="flex items-center justify-center gap-2"><div className="animate-spin" style={{ animationDuration: '1s' }}>🍗</div>Signing in...</span>
                   : "Sign In"}
             </button>
           </form>

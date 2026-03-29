@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
@@ -49,14 +49,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+export function AuthProvider({ 
+  children,
+  initialUser = null
+}: { 
+  children: React.ReactNode;
+  initialUser?: User | null;
+}) {
+  const [user, setUser] = useState<User | null>(initialUser);
   const [userData, setUserData] = useState<UserData | null>(null);
-  // Start with loading true to avoid hydration mismatch
-  const [loading, setLoading] = useState(true);
+  // Start with loading false if we already have a user (or definitively no user) from the server
+  const [loading, setLoading] = useState(!initialUser && typeof window === "undefined");
+
 
   // Helper to save userData to localStorage
-  const saveUserDataToCache = (data: UserData | null) => {
+  const saveUserDataToCache = useCallback((data: UserData | null) => {
     try {
       if (data) {
         localStorage.setItem("cached_user_data", JSON.stringify(data));
@@ -65,10 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       logger.warn("Failed to cache userData", e);
     }
-  };
+  }, []);
 
   // Helper to load userData from localStorage
-  const loadUserDataFromCache = (): UserData | null => {
+  const loadUserDataFromCache = useCallback((): UserData | null => {
     try {
       const cached = localStorage.getItem("cached_user_data");
       if (cached) {
@@ -80,10 +87,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logger.warn("Failed to load cached userData", e);
     }
     return null;
-  };
+  }, []);
 
   // Fetch user data from Supabase users table
-  const fetchUserData = async (uid: string): Promise<UserData | null> => {
+  const fetchUserData = useCallback(async (uid: string): Promise<UserData | null> => {
     try {
       // Increased timeout to 30 seconds for slow connections
       const queryPromise = supabase
@@ -133,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return null;
     }
-  };
+  }, []);
 
   // Listen to auth state changes
   useEffect(() => {
@@ -156,39 +163,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Get initial session
     supabase.auth
-      .getSession()
-      .then(async ({ data: { session } }) => {
+      .getUser()
+      .then(async ({ data: { user } }) => {
         if (!mounted) return;
 
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        let userData = null;
-
-        if (session?.user) {
-          // Try cache first, then fetch fresh
-          userData = cachedUserData || (await fetchUserData(session.user.id));
-          if (mounted && userData) {
-            setUserData(userData);
-            saveUserDataToCache(userData);
-            if (userData?.role) {
-              document.cookie = `userRole=${userData.role}; path=/; max-age=604800; SameSite=Lax; Secure`;
+        setUser(user);
+        
+        if (user) {
+          // If we have a user but no userData, fetch it
+          if (!userData) {
+            const data = await fetchUserData(user.id);
+            if (mounted && data) {
+              setUserData(data);
+              saveUserDataToCache(data);
             }
-            // Mark that user was authenticated - this persists forever
-            try {
-              localStorage.setItem("was_authenticated", "true");
-            } catch (e) {}
           }
-        } else {
-          // No session, clear cached data
-          if (mounted) {
-            setUserData(null);
-            try {
-              localStorage.removeItem("cached_user_data");
-            } catch (e) {}
-          }
+          
+          try {
+            localStorage.setItem("was_authenticated", "true");
+          } catch (e) {}
         }
 
-        // Only set loading to false AFTER userData is loaded
         if (mounted) {
           clearTimeout(timeout);
           setLoading(false);
@@ -202,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-    // Listen for auth changes (sign in/out only)
+    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -213,35 +208,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (event === "SIGNED_OUT") {
-        logger.debug("👋 User signed out - clearing all cached data");
         setUser(null);
         setUserData(null);
         setLoading(false);
         document.cookie = "userRole=; path=/; max-age=0; SameSite=Lax; Secure";
-        // Clear all cached data on sign out
         try {
           localStorage.removeItem("was_authenticated");
           localStorage.removeItem("cached_user_data");
         } catch (e) {}
       } else if (event === "SIGNED_IN" && session?.user) {
-        logger.debug("👍 User signed in, fetching userData");
         setUser(session.user);
         const data = await fetchUserData(session.user.id);
         if (mounted && data) {
           setUserData(data);
           saveUserDataToCache(data);
-          logger.debug(`✅ userData set and cached: role=${data.role}`);
           if (data.role) {
             document.cookie = `userRole=${data.role}; path=/; max-age=604800; SameSite=Lax; Secure`;
           }
-          // Set the persistent flag
           try {
             localStorage.setItem("was_authenticated", "true");
           } catch (e) {}
           setLoading(false);
         }
       }
-      // Ignore TOKEN_REFRESHED and other events - keep existing userData
     });
 
     return () => {
@@ -249,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserData, loadUserDataFromCache, saveUserDataToCache, userData]);
 
   // Real-time listener for user data changes (permissions, role, etc.)
   useEffect(() => {
@@ -290,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logger.debug("🔕 Cleaning up real-time listener");
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, fetchUserData, saveUserDataToCache]);
 
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
@@ -370,7 +359,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Clear all localStorage items
       try {
-        localStorage.removeItem("supabase.auth.token");
         localStorage.removeItem("cached_user_data");
         localStorage.removeItem("was_authenticated");
         logger.debug("🧹 Cleared all cached auth data");
