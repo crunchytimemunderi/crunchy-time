@@ -72,18 +72,6 @@ export default async function RootLayout({
             </MotionProvider>
             <PWAInstallPrompt />
           </div>
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <meta name="apple-mobile-web-app-title" content="Crunchy Time" />
-          <link rel="apple-touch-icon" href="/logo.png" />
-          <link rel="apple-touch-startup-image" href="/logo.png" />
-          <script dangerouslySetInnerHTML={{ __html: `
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').catch(function() {});
-              });
-            }
-          `}} />
         </AuthProvider>
       </body>
     </html>
