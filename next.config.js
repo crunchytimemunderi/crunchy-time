@@ -7,6 +7,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.supabase.co",
       },
+      {
+        protocol: "https",
+        hostname: "i0.wp.com",
+      },
     ],
   },
   webpack: (config, { isServer }) => {

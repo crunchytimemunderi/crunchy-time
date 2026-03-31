@@ -2,12 +2,38 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import { 
+  ShoppingCart, 
+  Plus, 
+  Search, 
+  Filter, 
+  Trash2, 
+  ArrowLeft, 
+  ArrowRight, 
+  Save, 
+  Receipt,
+  RotateCcw,
+  Tag,
+  CreditCard,
+  Wallet,
+  ChevronDown,
+  ChevronUp,
+  MoreVertical,
+  Edit2,
+  Image as ImageIcon,
+  LayoutGrid,
+  X,
+  Users
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { uploadImage, compressImage } from "@/lib/image-upload";
 import { exportToCSV, formatForExport } from "@/lib/export";
 import { saveCart, loadCart, clearCart } from "@/lib/cart-storage";
+import { queueOperation } from "@/lib/offline-queue";
 import {
   useKeyboardShortcuts,
   createShortcuts,
@@ -15,7 +41,10 @@ import {
 import { notifications } from "@/lib/notifications"
 import { logger } from "@/lib/logger";
 import { getCurrentDate, toLocalDateString } from "@/utils/formatting";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { formatINR } from "@/lib/currency";
+import PremiumLoader from "@/components/PremiumLoader";
+import { cn } from "@/lib/utils";
+
 
 interface Sale {
   id: string;
@@ -87,9 +116,20 @@ function SalesContent() {
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
   const [showExportDateRange, setShowExportDateRange] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [activeTab, setActiveTab] = useState<"pos" | "history">("pos");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(),
   );
+  const [quickSaleMode, setQuickSaleMode] = useState(false);
+  const [quickSaleAmount, setQuickSaleAmount] = useState("");
+  const [quickSalePayment, setQuickSalePayment] = useState<"cash" | "upi">("cash");
+  const [quickSaleDesc, setQuickSaleDesc] = useState("");
+  const [savingQuickSale, setSavingQuickSale] = useState(false);
+  const [customers, setCustomers] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
 
   const [selectedDate, setSelectedDate] = useState(() => getCurrentDate());
   const isAdmin = userData?.role === "admin";
@@ -192,20 +232,20 @@ function SalesContent() {
     });
   };
 
-  // Expand all categories
-  const expandAll = () => {
-    setExpandedCategories(new Set(Object.keys(groupedMenuItems)));
-  };
-
-  // Collapse all categories
-  const collapseAll = () => {
-    setExpandedCategories(new Set());
-  };
+  // Filter menu items by search
+  const filteredMenuItems = useMemo(() => {
+    if (!searchTerm) return menuItems;
+    const term = searchTerm.toLowerCase();
+    return menuItems.filter((item) =>
+      item.name.toLowerCase().includes(term) ||
+      (item.category && item.category.toLowerCase().includes(term))
+    );
+  }, [menuItems, searchTerm]);
 
   // Group menu items by category
   const groupedMenuItems = useMemo(() => {
     const groups: Record<string, MenuItem[]> = {};
-    menuItems.forEach((item) => {
+    filteredMenuItems.forEach((item) => {
       const category = item.category || "Main Dishes";
       if (!groups[category]) {
         groups[category] = [];
@@ -213,7 +253,15 @@ function SalesContent() {
       groups[category].push(item);
     });
     return groups;
-  }, [menuItems]);
+  }, [filteredMenuItems]);
+
+  const expandAll = () => {
+    setExpandedCategories(new Set(Object.keys(groupedMenuItems)));
+  };
+
+  const collapseAll = () => {
+    setExpandedCategories(new Set());
+  };
 
   // Filter and search sales
   const filteredSales = useMemo(() => {
@@ -267,23 +315,28 @@ function SalesContent() {
 
   // Auto-expand categories with frequently used items (logical default)
   useEffect(() => {
-    if (recentItems.length > 0 && expandedCategories.size === 0) {
+    if (searchTerm) {
+      setExpandedCategories(new Set(Object.keys(groupedMenuItems)));
+    } else {
+      setExpandedCategories(new Set());
+    }
+  }, [searchTerm, groupedMenuItems]);
+
+  // Initial expand for first category on mount
+  useEffect(() => {
+    if (!searchTerm && recentItems.length > 0 && expandedCategories.size === 0) {
       const categoriesToExpand = new Set<string>();
       recentItems.forEach((item) => {
         if (item.category) {
           categoriesToExpand.add(item.category);
         }
       });
-      // If no categories from recent items, expand the first category
-      if (
-        categoriesToExpand.size === 0 &&
-        Object.keys(groupedMenuItems).length > 0
-      ) {
+      if (categoriesToExpand.size === 0 && Object.keys(groupedMenuItems).length > 0) {
         categoriesToExpand.add(Object.keys(groupedMenuItems)[0]);
       }
       setExpandedCategories(categoriesToExpand);
     }
-  }, [recentItems, groupedMenuItems, expandedCategories.size]);
+  }, [recentItems, groupedMenuItems, expandedCategories.size, searchTerm]);
 
   // Check permission - Only users with canAddSales permission can access
   useEffect(() => {
@@ -346,6 +399,31 @@ function SalesContent() {
       logger.error("❌ Error fetching menu items:", error);
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchCustomers = async () => {
+      try {
+        const { data } = await supabase
+          .from("customers")
+          .select("id, name, phone")
+          .order("name")
+          .limit(200);
+        if (data) setCustomers(data);
+      } catch (err) {
+        logger.error("Error fetching customers:", err);
+      }
+    };
+    fetchCustomers();
+  }, [user]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch) return customers;
+    const term = customerSearch.toLowerCase();
+    return customers.filter(
+      (c) => c.name.toLowerCase().includes(term) || (c.phone && c.phone.includes(term))
+    );
+  }, [customers, customerSearch]);
 
   const fetchSales = useCallback(async () => {
     try {
@@ -434,6 +512,8 @@ function SalesContent() {
   };
 
   const handleDiscountChange = (newDisc: string) => {
+    const val = parseFloat(newDisc);
+    if (!isNaN(val) && val < 0) return;
     setDiscount(newDisc);
     calculateTotal(subtotal, newDisc, additional);
   };
@@ -701,6 +781,9 @@ function SalesContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent duplicate submissions
+    if (loading) return;
+
     if (
       amount.trim() === "" ||
       isNaN(parseFloat(amount)) ||
@@ -722,13 +805,35 @@ function SalesContent() {
 
     setLoading(true);
 
-    // Timeout to prevent infinite loading (15 seconds)
-    const saveTimeout = setTimeout(() => {
-      setLoading(false);
-      showMessage("error", "Connection timeout. Check Supabase");
-    }, 15000);
+    const salePayload = {
+      amount: parseFloat(amount),
+      payment_method: paymentMethod,
+      description: description.trim(),
+      date: selectedDate,
+      created_by: user.id,
+      created_by_name: userData.displayName,
+      customer_id: selectedCustomerId || null,
+    };
 
     try {
+      if (!navigator.onLine) {
+        await queueOperation({ type: "sale", payload: salePayload });
+        showMessage("success", `✓ ₹${amount} queued (offline)`);
+        notifications.info("Sale Queued", `₹${amount} saved offline, will sync when online`);
+        clearCart();
+        setCart([]);
+        setAmount("");
+        setQuantity("1");
+        setUnitPrice("");
+        setDiscount("");
+        setAdditional("");
+        setSubtotal("");
+        setDescription("");
+        setSelectedItem("");
+        setLoading(false);
+        return;
+      }
+
       logger.debug("💾 Attempting to save sale...");
       logger.debug("User ID:", user.id);
       logger.debug("Amount:", amount);
@@ -736,32 +841,27 @@ function SalesContent() {
 
       const { data, error } = await supabase
         .from("sales")
-        .insert({
-          amount: parseFloat(amount),
-          payment_method: paymentMethod,
-          description: description.trim(),
-          date: selectedDate,
-          created_by: user.id,
-          created_by_name: userData.displayName,
-        })
+        .insert(salePayload)
         .select();
 
-      clearTimeout(saveTimeout);
-
       if (error) {
-        logger.error("Supabase error:", error);
-        showMessage(
-          "error",
-          `Save failed: ${error.message || error.code || "Unknown error"}`,
-        );
-        setLoading(false);
-        return;
+        if (error.message?.includes("network") || error.message?.includes("fetch")) {
+          await queueOperation({ type: "sale", payload: salePayload });
+          showMessage("success", `✓ ₹${amount} queued (offline)`);
+          notifications.info("Sale Queued", `₹${amount} saved offline, will sync when online`);
+        } else {
+          logger.error("Supabase error:", error);
+          showMessage("error", `Save failed: ${error.message || error.code || "Unknown error"}`);
+          setLoading(false);
+          return;
+        }
+      } else {
+        showMessage("success", `✓ ₹${amount} sale saved!`);
+        notifications.success("Sale Saved", `₹${amount} recorded successfully`);
       }
 
-      showMessage("success", `✓ ₹${amount} sale saved!`);
-      notifications.success("Sale Saved", `₹${amount} recorded successfully`);
+      clearCart();
       setCart([]);
-      clearCart(); // Clear localStorage
       setAmount("");
       setQuantity("1");
       setUnitPrice("");
@@ -771,12 +871,26 @@ function SalesContent() {
       setDescription("");
       setSelectedItem("");
 
-      // Don't await - fetch in background
       fetchSales().catch(console.error);
-    } catch (error) {
-      clearTimeout(saveTimeout);
-      logger.error("Error saving sale:", error);
-      showMessage("error", "Failed to save. Try again");
+    } catch (error: any) {
+      if (error.message?.includes("network") || error.message?.includes("fetch") || error.message?.includes("Failed to fetch")) {
+        await queueOperation({ type: "sale", payload: salePayload });
+        showMessage("success", `✓ ₹${amount} queued (offline)`);
+        notifications.info("Sale Queued", `₹${amount} saved offline, will sync when online`);
+        clearCart();
+        setCart([]);
+        setAmount("");
+        setQuantity("1");
+        setUnitPrice("");
+        setDiscount("");
+        setAdditional("");
+        setSubtotal("");
+        setDescription("");
+        setSelectedItem("");
+      } else {
+        logger.error("Error saving sale:", error);
+        showMessage("error", "Failed to save. Try again");
+      }
     } finally {
       setLoading(false);
     }
@@ -784,11 +898,65 @@ function SalesContent() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this sale?")) return;
+    if (!hasPermission("canDeleteRecords") && !isAdmin) return;
 
     const { error } = await supabase.from("sales").delete().eq("id", id);
     if (!error) {
       showMessage("success", "Sale deleted");
       fetchSales();
+    }
+  };
+
+  const handleQuickSale = async () => {
+    if (savingQuickSale) return;
+    if (!quickSaleAmount.trim() || isNaN(parseFloat(quickSaleAmount)) || parseFloat(quickSaleAmount) <= 0) {
+      showMessage("error", "Enter a valid amount");
+      return;
+    }
+    if (!user || !userData) {
+      showMessage("error", "Not authenticated");
+      return;
+    }
+    setSavingQuickSale(true);
+    const qsPayload = {
+      amount: parseFloat(quickSaleAmount),
+      payment_method: quickSalePayment,
+      description: quickSaleDesc.trim() || "Quick Sale",
+      date: selectedDate,
+      created_by: user.id,
+      created_by_name: userData.displayName,
+    };
+    try {
+      if (!navigator.onLine) {
+        await queueOperation({ type: "sale", payload: qsPayload });
+        showMessage("success", `✓ ₹${quickSaleAmount} queued (offline)`);
+        notifications.info("Sale Queued", `₹${quickSaleAmount} saved offline`);
+        setQuickSaleAmount("");
+        setQuickSaleDesc("");
+        setQuickSaleMode(false);
+        return;
+      }
+      const { error } = await supabase.from("sales").insert(qsPayload);
+      if (error) {
+        if (error.message?.includes("network") || error.message?.includes("fetch") || error.message?.includes("Failed to fetch")) {
+          await queueOperation({ type: "sale", payload: qsPayload });
+          showMessage("success", `✓ ₹${quickSaleAmount} queued (offline)`);
+          notifications.info("Sale Queued", `₹${quickSaleAmount} saved offline`);
+        } else {
+          throw error;
+        }
+      } else {
+        showMessage("success", `✓ ₹${quickSaleAmount} quick sale saved!`);
+        notifications.success("Quick Sale Saved", `₹${quickSaleAmount} recorded`);
+      }
+      setQuickSaleAmount("");
+      setQuickSaleDesc("");
+      setQuickSaleMode(false);
+      fetchSales().catch(console.error);
+    } catch (err: any) {
+      showMessage("error", `Failed: ${err.message}`);
+    } finally {
+      setSavingQuickSale(false);
     }
   };
 
@@ -808,6 +976,13 @@ function SalesContent() {
   );
   const totalSales = useMemo(() => totalCash + totalUPI, [totalCash, totalUPI]);
 
+  // Analytics summary data
+  const stats = useMemo(() => [
+    { label: "Total Revenue", value: totalSales, icon: ShoppingCart, color: "text-primary" },
+    { label: "Cash Income", value: totalCash, icon: Wallet, color: "text-green-400" },
+    { label: "Digital (UPI)", value: totalUPI, icon: CreditCard, color: "text-blue-400" },
+  ], [totalSales, totalCash, totalUPI]);
+
   logger.debug(
     "Sales page render - authLoading:",
     authLoading,
@@ -817,864 +992,689 @@ function SalesContent() {
     userData,
   );
 
-  // Only show loading on initial mount (when there's no user yet)
-  // If user exists, show page even during auth checks
+  // Custom Premium Loading Component
   if (authLoading && !user) {
-    return <LoadingSpinner size="lg" text="Loading sales..." fullScreen />;
-  }
-
-  if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-slate-300 text-lg font-medium">
-            Please log in to continue
-          </p>
-        </div>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6">
+        <PremiumLoader icon="bag" message="Opening Terminal..." />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-900 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Message */}
-        {message && (
-          <div
-            className={`mb-4 p-3 rounded-lg text-center font-medium ${
-              messageType === "success"
-                ? "bg-green-600 text-white"
-                : "bg-red-600 text-white"
-            }`}
-          >
-            {message}
-          </div>
-        )}
+  if (!user) return null;
 
-        {/* Header with Date Selector */}
-        <div className="bg-white rounded-lg p-4 mb-4">
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-1">
-                💰 Record Sale
-              </h1>
-              <p className="text-gray-600 text-sm">
-                {selectedDate === getCurrentDate() ? (
-                  <span className="font-semibold text-blue-600">📅 Today</span>
-                ) : (
-                  new Date(selectedDate).toLocaleDateString("en-IN", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })
-                )}
-              </p>
-            </div>
+  return (
+    <div className="min-h-screen bg-slate-950 font-inter text-slate-200">
+      <div className="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-8">
+        
+        {/* Header Section */}
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-1"
+          >
+             <div className="flex items-center gap-5 mb-4">
+               <div className="w-14 h-14 bg-crispy-gradient rounded-2xl flex items-center justify-center shadow-3xl shadow-red-500/20 transform -rotate-6 border border-white/20 text-white overflow-hidden">
+                 <Image
+                   src="/logo.png"
+                   alt="Crunchy Time Logo"
+                   width={56}
+                   height={56}
+                   className="w-full h-full object-cover"
+                 />
+               </div>
+               <div>
+                 <h1 className="text-4xl font-outfit font-black text-white tracking-tight uppercase leading-none italic">CRUNCHY TIME</h1>
+                 <p className="text-[10px] font-black text-muted-foreground tracking-[0.3em] mt-2 flex items-center gap-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                   {selectedDate === getCurrentDate() ? "Counter Terminal" : "Store Archive"} • {new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }).toUpperCase()}
+                 </p>
+               </div>
+             </div>
+          </motion.div>
+
+          <motion.div 
+             initial={{ opacity: 0, x: 20 }}
+             animate={{ opacity: 1, x: 0 }}
+             className="flex flex-wrap items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-md"
+          >
             {isAdmin && (
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  📅 View Date:
-                </label>
-                <button
-                  type="button"
+              <>
+                <button 
                   onClick={goToPreviousDay}
-                  className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 rounded-lg text-gray-700 font-bold transition-colors"
-                  title="Previous Day"
+                  className="p-3 hover:bg-white/10 rounded-xl transition-colors text-muted-foreground hover:text-white"
                 >
-                  ←
+                  <ArrowLeft className="w-5 h-5" />
                 </button>
-                <input
-                  type="date"
-                  aria-label="View date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  max={getCurrentDate()}
-                  className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                />
-                <button
-                  type="button"
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    max={getCurrentDate()}
+                    className="bg-transparent border-none text-sm font-bold text-white focus:ring-0 cursor-pointer px-4"
+                  />
+                </div>
+                <button 
                   onClick={goToNextDay}
                   disabled={selectedDate >= getCurrentDate()}
-                  className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 rounded-lg text-gray-700 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Next Day"
+                  className="p-3 hover:bg-white/10 rounded-xl transition-colors text-muted-foreground hover:text-white disabled:opacity-30"
                 >
-                  →
+                  <ArrowRight className="w-5 h-5" />
                 </button>
-              </div>
+              </>
             )}
-          </div>
-        </div>
+            <div className="h-8 w-px bg-white/10 mx-2 hidden sm:block" />
+            <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+              <button 
+                onClick={() => setActiveTab("pos")}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+                  activeTab === "pos" ? "bg-crispy-gradient text-white shadow-lg" : "text-muted-foreground hover:text-white"
+                )}
+              >
+                POS
+              </button>
+              <button 
+                onClick={() => setActiveTab("history")}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+                  activeTab === "history" ? "bg-crispy-gradient text-white shadow-lg" : "text-muted-foreground hover:text-white"
+                )}
+              >
+                History
+              </button>
+            </div>
+            <button 
+              onClick={() => setShowExportDateRange(true)}
+              className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              Save All
+            </button>
+          </motion.div>
+        </header>
 
-        {/* Add Sale Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg p-4 mb-4">
-          <div className="space-y-4">
-            {/* Menu Items Selection */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-base font-bold text-gray-900">
-                  🍗 Select Item
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowAddItem(!showAddItem)}
-                  className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all"
-                >
-                  {showAddItem ? "✕ Cancel" : "+ New"}
-                </button>
+        {/* Global Notifications */}
+        <AnimatePresence>
+          {message && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={cn(
+                "p-4 rounded-2xl border flex items-center gap-3 shadow-2xl backdrop-blur-xl",
+                messageType === "success" 
+                  ? "bg-green-500/10 border-green-500/20 text-green-400" 
+                  : "bg-red-500/10 border-red-500/20 text-red-400"
+              )}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center",
+                messageType === "success" ? "bg-green-500/20" : "bg-red-500/20"
+              )}>
+                {messageType === "success" ? "✓" : "!"}
               </div>
+              <p className="font-bold text-sm">{message}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              {/* Quick Actions - Frequently Used Items */}
-              {recentItems.length > 0 && !showAddItem && (
-                <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <div className="text-xs font-bold text-yellow-800 mb-2">
-                    ⚡ Quick Add (Frequently Used)
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {recentItems.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleSelectItem(item)}
-                        className="bg-white hover:bg-yellow-100 border-2 border-yellow-300 text-gray-900 p-2 rounded-lg text-sm font-medium transition-all"
-                      >
-                        <div className="font-bold">{item.name}</div>
-                        <div className="text-xs text-gray-600">
-                          ₹{item.price}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          
+          {/* Main POS Interface (Left/Center) */}
+          <div className="xl:col-span-7 space-y-8">
+            
+            {/* Quick Actions & Search */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input 
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search Menu (F for focus)"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white/10 transition-all font-medium"
+                />
+              </div>
+              <button 
+                onClick={() => setQuickSaleMode(!quickSaleMode)}
+                className={cn(
+                  "px-6 py-4 rounded-2xl font-bold hover-lift active-scale transition-all flex items-center justify-center gap-2 shrink-0",
+                  quickSaleMode
+                    ? "bg-crispy-gradient text-white border border-white/20 shadow-lg shadow-primary/20"
+                    : "bg-white/5 border border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                <Wallet className="w-5 h-5" />
+                Quick Sale
+              </button>
+              <button 
+                onClick={() => setShowAddItem(!showAddItem)}
+                className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 hover-lift active-scale transition-all flex items-center justify-center shrink-0"
+                title="New Product"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Add New Menu Item */}
-              {showAddItem && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      placeholder="Item name"
-                      className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newItemPrice}
-                      onChange={(e) => setNewItemPrice(e.target.value)}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      placeholder="Price ₹"
-                      className="p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <select
-                    aria-label="Menu item category"
-                    value={newItemCategory}
-                    onChange={(e) => setNewItemCategory(e.target.value)}
-                    className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none mb-2"
-                  >
-                    <option value="Main Dishes">Main Dishes</option>
-                    <option value="Sides">Sides</option>
-                    <option value="Beverages">Beverages</option>
-                    <option value="Desserts">Desserts</option>
-                    <option value="Specials">Specials</option>
-                    <option value="Custom">Custom...</option>
-                  </select>
-                  {newItemCategory === "Custom" && (
-                    <input
-                      type="text"
-                      value={newCustomCategory}
-                      onChange={(e) => setNewCustomCategory(e.target.value)}
-                      placeholder="Enter custom category name"
-                      className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none mb-2"
-                    />
-                  )}
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Image (URL or Upload)
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newItemImage}
-                        onChange={(e) => setNewItemImage(e.target.value)}
-                        placeholder="Image URL (optional)"
-                        className="flex-1 p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                      />
-                      <label className="relative">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          disabled={uploadingImage}
-                          className="hidden"
-                        />
-                        <span
-                          className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all inline-block ${
-                            uploadingImage
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700 text-white"
-                          }`}
-                        >
-                          {uploadingImage ? "📤..." : "📷 Upload"}
-                        </span>
-                      </label>
-                    </div>
-                    {newItemImage && (
-                      <div className="mt-2 relative w-20 h-20">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={newItemImage}
-                          alt="Preview"
-                          className="w-full h-full object-cover rounded border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setNewItemImage("")}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddMenuItem}
-                    className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700"
-                  >
-                    ✓ Add to Menu
-                  </button>
-                </div>
-              )}
-
-              {/* Edit Menu Item Modal */}
-              {editingItem && userData?.role === "admin" && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-gray-900">
-                      Edit: {editingItem.name}
-                    </h3>
+            <div className="space-y-12">
+              {Object.entries(groupedMenuItems).map(([category, items], catIdx) => {
+                const isExpanded = expandedCategories.has(category);
+                return (
+                <motion.section 
+                  key={category}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: catIdx * 0.1 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-8 bg-crispy-gradient rounded-full" />
+                    <h3
+                      onClick={() => toggleCategory(category)}
+                      className="text-xl font-outfit font-black text-white tracking-tight uppercase cursor-pointer hover:text-primary transition-colors"
+                    >{category}</h3>
+                    <div className="h-px bg-white/5 flex-1" />
+                    <span className="text-[10px] font-black text-muted-foreground bg-white/5 px-2 py-0.5 rounded-full">{items.length} OPTIONS</span>
                     <button
-                      type="button"
-                      onClick={() => setEditingItem(null)}
-                      className="text-gray-600 hover:text-gray-900"
+                      onClick={() => toggleCategory(category)}
+                      className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10 transition-all"
+                      title={isExpanded ? "Collapse" : "Expand"}
                     >
-                      ✕
+                      <ChevronDown className={cn("w-4 h-4 transition-transform duration-300", isExpanded ? "" : "rotate-180")} />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Item name"
-                      className="p-2 border rounded-md text-sm text-gray-900"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      placeholder="Price ₹"
-                      className="p-2 border rounded-md text-sm text-gray-900"
-                    />
-                  </div>
-                  <select
-                    aria-label="Edit item category"
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                    className="w-full p-2 border rounded-md text-sm text-gray-900 mb-2"
-                  >
-                    <option value="Main Dishes">Main Dishes</option>
-                    <option value="Sides">Sides</option>
-                    <option value="Beverages">Beverages</option>
-                    <option value="Desserts">Desserts</option>
-                    <option value="Specials">Specials</option>
-                    <option value="Custom">Custom...</option>
-                  </select>
-                  {editCategory === "Custom" && (
-                    <input
-                      type="text"
-                      value={editCustomCategory}
-                      onChange={(e) => setEditCustomCategory(e.target.value)}
-                      placeholder="Enter custom category name"
-                      className="w-full p-2 border rounded-md text-sm text-gray-900 mb-2"
-                    />
-                  )}
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Image (URL or Upload)
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={editImage}
-                        onChange={(e) => setEditImage(e.target.value)}
-                        placeholder="Image URL (optional)"
-                        className="flex-1 p-2 border rounded-md text-sm text-gray-900"
-                      />
-                      <label className="relative">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleEditImageUpload}
-                          disabled={editUploadingImage}
-                          className="hidden"
-                        />
-                        <span
-                          className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all inline-block ${
-                            editUploadingImage
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700 text-white"
-                          }`}
-                        >
-                          {editUploadingImage ? "📤..." : "📷 Upload"}
-                        </span>
-                      </label>
-                    </div>
-                    {editImage && (
-                      <div className="mt-2 relative w-20 h-20">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={editImage}
-                          alt="Preview"
-                          className="w-full h-full object-cover rounded border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setEditImage("")}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleUpdateMenuItem}
-                    className="w-full bg-orange-600 text-white py-2 rounded-md text-sm font-medium hover:bg-orange-700"
-                  >
-                    ✓ Update Item
-                  </button>
-                </div>
-              )}
 
-              {/* Menu Items Grid */}
-              <div>
-                {/* Category Expand/Collapse Controls */}
-                {menuItems.length > 0 && (
-                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
-                    <span className="text-sm font-bold text-gray-700">
-                      📂 {Object.keys(groupedMenuItems).length} Categories
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={expandAll}
-                        className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
                       >
-                        ▼ Expand All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={collapseAll}
-                        className="text-xs px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-medium"
+                        <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 pt-2">
+                    {items.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        whileHover={{ y: -6, scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleSelectItem(item)}
+                        className="glass-card group relative p-3 text-left border-white/10 hover:border-primary/50 transition-all flex flex-col gap-2 cursor-pointer hover-lift active-scale"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleSelectItem(item);
+                          }
+                        }}
                       >
-                        ▲ Collapse All
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {menuItems.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4">
-                    No menu items yet. Click &quot;+ New&quot; to add items.
-                  </div>
-                ) : (
-                  Object.entries(groupedMenuItems).map(([category, items]) => {
-                    const isExpanded = expandedCategories.has(category);
-                    return (
-                      <div
-                        key={category}
-                        className="mb-3 border border-gray-200 rounded-lg overflow-hidden"
-                      >
-                        {/* Category Header - Clickable */}
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(category)}
-                          className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-red-50 to-orange-50 hover:from-red-100 hover:to-orange-100 transition-all"
-                        >
-                          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                            <span className="text-red-600">
-                              {isExpanded ? "▼" : "▶"}
-                            </span>
-                            {category}
-                            <span className="text-xs font-normal text-gray-600 bg-white px-2 py-0.5 rounded-full">
-                              {items.length}
-                            </span>
-                          </h3>
-                        </button>
-
-                        {/* Category Items - Collapsible */}
-                        {isExpanded && (
-                          <div className="p-3 bg-white">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                              {items.map((item) => (
-                                <div key={item.id} className="relative">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectItem(item)}
-                                    className={`w-full p-3 rounded-lg border-2 transition-all ${
-                                      selectedItem === item.name
-                                        ? "bg-red-600 text-white border-red-700"
-                                        : "bg-white text-gray-900 border-gray-300 hover:border-red-500"
-                                    }`}
-                                  >
-                                    {item.image_url ? (
-                                      <div className="w-full h-16 mb-1 flex items-center justify-center">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          src={item.image_url}
-                                          alt={item.name}
-                                          className="max-w-full max-h-full object-contain rounded"
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div className="text-2xl mb-1">🍗</div>
-                                    )}
-                                    <div className="font-bold text-sm">
-                                      {item.name}
-                                    </div>
-                                    <div className="text-base font-bold mt-1">
-                                      ₹{item.price}
-                                    </div>
-                                  </button>
-                                  {userData?.role === "admin" && (
-                                    <div className="absolute top-1 right-1 flex gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          startEditItem(item);
-                                        }}
-                                        className="bg-blue-600 text-white rounded-full w-6 h-6 text-xs hover:bg-blue-700"
-                                        title="Edit"
-                                      >
-                                        ✎
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteMenuItem(item);
-                                        }}
-                                        className="bg-red-600 text-white rounded-full w-6 h-6 text-xs hover:bg-red-700"
-                                        title="Delete"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                         <div className="aspect-[4/3] rounded-lg bg-white/5 overflow-hidden relative mb-0.5">
+                          {item.image_url ? (
+                            <Image 
+                              src={item.image_url} 
+                              alt={item.name} 
+                              width={300} 
+                              height={225} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center opacity-20">
+                              <ImageIcon className="w-8 h-8" />
                             </div>
+                          )}
+                          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 backdrop-blur-md rounded-lg text-xs font-black text-white border border-white/10 shadow-2xl">
+                            {formatINR(item.price)}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-outfit font-black text-white tracking-tight line-clamp-1">{item.name}</h4>
+                          <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{category}</p>
+                        </div>
+                        
+                        {isAdmin && (
+                          <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); startEditItem(item); }}
+                              className="w-6 h-6 rounded-md bg-blue-500 text-white shadow-xl flex items-center justify-center"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteMenuItem(item); }}
+                              className="w-6 h-6 rounded-md bg-red-500 text-white shadow-xl flex items-center justify-center"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                         )}
+                      </motion.div>
+                    ))}
+                  </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.section>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Cart Section (Sticky Sidebar) */}
+          <div className="xl:col-span-5 lg:sticky lg:top-8">
+            <div className="glass-card flex flex-col border-white/10 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+              {quickSaleMode ? (
+                /* Quick Sale Form */
+                <div className="flex flex-col h-full">
+                  <div className="p-8 border-b border-white/10 bg-white/5">
+                    <div className="flex items-center justify-between mb-2">
+                       <h3 className="text-2xl font-outfit font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                        <Wallet className="w-6 h-6 text-primary" />
+                        Quick Sale
+                      </h3>
+                      <button onClick={() => setQuickSaleMode(false)} className="text-muted-foreground hover:text-white transition-colors"><RotateCcw className="w-5 h-5" /></button>
+                    </div>
+                    <p className="text-[10px] font-black text-muted-foreground tracking-widest uppercase">Enter total amount directly</p>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Amount (₹)</label>
+                      <input 
+                        type="number"
+                        value={quickSaleAmount}
+                        onChange={(e) => setQuickSaleAmount(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="0"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-3xl font-outfit font-black text-white text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Payment Method</label>
+                      <div className="flex gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => setQuickSalePayment("cash")}
+                          className={cn("flex-1 py-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1", quickSalePayment === "cash" ? "bg-green-500/20 border-green-500 text-green-400" : "bg-white/5 border-white/10 text-muted-foreground")}
+                        >
+                          <Wallet className="w-5 h-5" />
+                          <span className="text-[10px] font-black uppercase">CASH</span>
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setQuickSalePayment("upi")}
+                          className={cn("flex-1 py-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1", quickSalePayment === "upi" ? "bg-blue-500/20 border-blue-500 text-blue-400" : "bg-white/5 border-white/10 text-muted-foreground")}
+                        >
+                          <CreditCard className="w-5 h-5" />
+                          <span className="text-[10px] font-black uppercase">DIGITAL</span>
+                        </button>
                       </div>
-                    );
-                  })
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Description (optional)</label>
+                      <input 
+                        type="text"
+                        value={quickSaleDesc}
+                        onChange={(e) => setQuickSaleDesc(e.target.value)}
+                        placeholder="e.g. Party order, Bulk sale"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-white/[0.03] border-t border-white/10 space-y-4">
+                    <motion.button 
+                      type="button"
+                      onClick={handleQuickSale}
+                      disabled={savingQuickSale || !quickSaleAmount}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full py-6 bg-crispy-gradient text-white rounded-3xl font-black text-xl tracking-tight shadow-3xl shadow-primary/40 flex items-center justify-center gap-3 transition-all disabled:opacity-30"
+                    >
+                      <Save className="w-7 h-7" />
+                      {savingQuickSale ? "SAVING..." : "SAVE QUICK SALE"}
+                    </motion.button>
+                  </div>
+                </div>
+              ) : (
+                <>
+              <div className="p-8 border-b border-white/10 bg-white/5">
+                <div className="flex items-center justify-between mb-2">
+                   <h3 className="text-2xl font-outfit font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                    <ShoppingCart className="w-6 h-6 text-primary" />
+                    DONE
+                  </h3>
+                  <button onClick={() => { setCart([]); clearCart(); notifications.info("Cart Cleared", "System reset performed"); }} className="text-muted-foreground hover:text-red-500 transition-colors"><RotateCcw className="w-5 h-5" /></button>
+                </div>
+                <p className="text-[10px] font-black text-muted-foreground tracking-widest uppercase">{cart.length} ITEMS</p>
+              </div>
+
+              <div className="p-4 space-y-2">
+                <AnimatePresence mode="popLayout">
+                  {cart.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      whileHover={{ x: -4, backgroundColor: "rgba(255,255,255,0.08)" }}
+                      className="group bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between transition-colors cursor-default"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-crispy-gradient flex items-center justify-center text-white font-black text-xs shrink-0 shadow-lg shadow-primary/20">
+                          {item.quantity}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white leading-tight truncate">{item.name}</p>
+                          <p className="text-[9px] font-bold text-muted-foreground mt-0.5">{formatINR(item.price)} × {item.quantity}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                        <p className="text-sm font-outfit font-black text-white">{formatINR(item.total)}</p>
+                        <button onClick={() => handleRemoveFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {cart.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center opacity-20 text-center space-y-4">
+                    <ShoppingCart className="w-20 h-20" />
+                    <p className="font-black tracking-widest text-sm uppercase">Waiting for order</p>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Cart Items List */}
-            {cart.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">
-                  🛒 Cart ({cart.length} items)
-                </h3>
-                <div className="space-y-2">
-                  {cart.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-gray-200"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 text-sm">
-                          {item.name}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          ₹{item.price} × {item.quantity} = ₹
-                          {item.total.toFixed(2)}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFromCart(item.id)}
-                        className="ml-2 bg-red-600 text-white rounded-full w-7 h-7 text-xs hover:bg-red-700 flex items-center justify-center"
-                        title="Remove"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+              <div className="p-8 bg-white/[0.03] border-t border-white/10 space-y-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-muted-foreground text-[10px] font-black uppercase tracking-widest">
+                    <span>Total before discount</span>
+                    <span className="text-white font-outfit font-bold">{formatINR(parseFloat(subtotal) || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase leading-none">Discount (₹)</span>
+                    <input 
+                      type="number"
+                      value={discount}
+                      onChange={(e) => handleDiscountChange(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-20 bg-transparent text-right font-black text-primary border-none focus:ring-0 p-0"
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* Quantity, Subtotal, Discount, Additional, Total */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
-                  🔢 Quantity
-                </label>
-                <input
-                  type="number"
-                  aria-label="Quantity"
-                  min="1"
-                  step="1"
-                  value={quantity}
-                  onChange={(e) => handleQuantityChange(e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
-                  💵 Subtotal (₹)
-                </label>
-                <input
-                  type="number"
-                  aria-label="Subtotal"
-                  step="0.01"
-                  value={subtotal}
-                  readOnly
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="w-full p-2.5 text-base border-2 border-gray-300 bg-gray-100 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
-                />
-              </div>
-            </div>
+                <div className="pt-2">
+                   <p className="text-[10px] font-black text-primary tracking-[.4em] uppercase mb-1">Total to pay</p>
+                   <motion.p 
+                     key={amount}
+                     initial={{ scale: 0.95, opacity: 0.8 }}
+                     animate={{ scale: 1, opacity: 1 }}
+                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                     className="text-5xl font-outfit font-black text-white tracking-tighter leading-none"
+                   >
+                     {formatINR(parseFloat(amount) || 0)}
+                   </motion.p>
+                </div>
 
-            {/* Discount and Additional */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
-                  💸 Discount (₹)
-                </label>
-                <input
-                  type="number"
-                  aria-label="Discount"
-                  step="0.01"
-                  min="0"
-                  value={discount}
-                  onChange={(e) => handleDiscountChange(e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  placeholder="0"
-                  className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
-                />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={selectedCustomerId ? customers.find(c => c.id === selectedCustomerId)?.name || "" : customerSearch}
+                      onChange={(e) => { setCustomerSearch(e.target.value); setSelectedCustomerId(""); setShowCustomerDropdown(true); }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      placeholder="Select customer (optional)"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <AnimatePresence>
+                      {showCustomerDropdown && filteredCustomers.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="absolute z-50 w-full mt-1 bg-slate-900 border border-white/10 rounded-xl max-h-40 overflow-y-auto shadow-2xl"
+                        >
+                          {filteredCustomers.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { setSelectedCustomerId(c.id); setCustomerSearch(c.name); setShowCustomerDropdown(false); }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+                            >
+                              <span>{c.name}</span>
+                              {c.phone && <span className="text-[10px] text-muted-foreground">{c.phone}</span>}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    {selectedCustomerId && (
+                      <button type="button" onClick={() => { setSelectedCustomerId(""); setCustomerSearch(""); }} className="absolute right-3 top-3 text-muted-foreground hover:text-white">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button 
+                      type="button" 
+                      onClick={() => setPaymentMethod("cash")}
+                      className={cn("flex-1 py-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1", paymentMethod === "cash" ? "bg-green-500/20 border-green-500 text-green-400" : "bg-white/5 border-white/10 text-muted-foreground")}
+                    >
+                      <Wallet className="w-5 h-5" />
+                      <span className="text-[10px] font-black uppercase">CASH</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setPaymentMethod("upi")}
+                      className={cn("flex-1 py-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1", paymentMethod === "upi" ? "bg-blue-500/20 border-blue-500 text-blue-400" : "bg-white/5 border-white/10 text-muted-foreground")}
+                    >
+                      <CreditCard className="w-5 h-5" />
+                      <span className="text-[10px] font-black uppercase">DIGITAL</span>
+                    </button>
+                  </div>
+                  <motion.button 
+                    type="submit" 
+                    disabled={loading || cart.length === 0}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-6 bg-crispy-gradient text-white rounded-3xl font-black text-xl tracking-tight shadow-3xl shadow-primary/40 flex items-center justify-center gap-3 transition-all disabled:opacity-30 ripple active-scale"
+                  >
+                    <Save className="w-7 h-7" />
+                    {loading ? "SAVING..." : "SAVE SALE"}
+                  </motion.button>
+                </form>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
-                  ➕ Additional (₹)
-                </label>
-                <input
-                  type="number"
-                  aria-label="Additional"
-                  step="0.01"
-                  min="0"
-                  value={additional}
-                  onChange={(e) => handleAdditionalChange(e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  placeholder="0"
-                  className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Final Total */}
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">
-                ✅ Final Total (₹)
-              </label>
-              <input
-                type="number"
-                aria-label="Final total"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                onWheel={(e) => e.currentTarget.blur()}
-                placeholder="Auto-calculated"
-                className="w-full p-3 text-lg font-bold border-2 border-green-500 bg-slate-700 rounded-lg text-green-400 focus:border-green-400 focus:outline-none"
-              />
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">
-                📝 Details (optional)
-              </label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Auto-filled or add notes"
-                className="w-full p-2.5 text-base border-2 border-gray-300 rounded-lg text-gray-900 focus:border-red-500 focus:outline-none"
-              />
-            </div>
-
-            {/* Payment Method */}
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">
-                💳 Payment Method
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("cash")}
-                  className={`p-3 rounded-lg border-2 font-medium transition-all ${
-                    paymentMethod === "cash"
-                      ? "bg-green-600 text-white border-green-700"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-green-500"
-                  }`}
-                >
-                  💵 Cash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`p-3 rounded-lg border-2 font-medium transition-all ${
-                    paymentMethod === "upi"
-                      ? "bg-blue-600 text-white border-blue-700"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-blue-500"
-                  }`}
-                >
-                  📱 UPI/Card
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "⏳ Saving..." : "✓ Save Sale"}
-            </button>
-          </div>
-        </form>
-
-        {/* Today's Summary */}
-        <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-4 mb-4 text-white">
-          <h2 className="text-base font-bold mb-3">📊 Today&apos;s Total</h2>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <div className="text-xs opacity-90">Total</div>
-              <div className="text-xl font-bold">
-                ₹{totalSales.toLocaleString("en-IN")}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs opacity-90">Cash</div>
-              <div className="text-xl font-bold">
-                ₹{totalCash.toLocaleString("en-IN")}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs opacity-90">UPI</div>
-              <div className="text-xl font-bold">
-                ₹{totalUPI.toLocaleString("en-IN")}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Sales List */}
-        <div className="bg-white rounded-lg p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-base font-bold text-gray-900">
-              Today&apos;s Sales ({filteredSales.length})
-            </h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowExportDateRange(!showExportDateRange)}
-                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all"
+        {/* Audit Overlay (History) */}
+        <AnimatePresence>
+          {activeTab === "history" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8"
+            >
+              {/* Transactions List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                {filteredSales.map((sale, i) => (
+                  <motion.div
+                    key={sale.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="glass-card p-6 border-white/5 hover:border-primary/30 transition-all group"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="space-y-1">
+                        <p className="text-3xl font-outfit font-black text-white tracking-tighter">{formatINR(sale.amount)}</p>
+                        <div className={cn("inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-tighter shadow-sm", sale.payment_method === 'cash' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-400')}>
+                          {sale.payment_method}
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <button onClick={() => handleDelete(sale.id)} className="p-2 rounded-lg bg-red-500 text-white shadow-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-slate-300 mb-6 italic leading-relaxed">&quot;{sale.description || "No memo attached"}&quot;</p>
+                    <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-crispy-gradient flex items-center justify-center text-[10px] font-black text-white shadow-lg">{sale.created_by_name?.charAt(0)}</div>
+                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{sale.created_by_name}</span>
+                      </div>
+                      <span className="text-[10px] font-black text-muted-foreground opacity-50">{new Date(sale.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {filteredSales.length === 0 && (
+                <div className="py-32 text-center glass-card border-white/10 opacity-20">
+                  <Receipt className="w-24 h-24 mx-auto mb-4 opacity-50" />
+                  <p className="font-black tracking-[0.4em] uppercase text-sm">No sales here</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Global Overlays */}
+        <AnimatePresence>
+          {/* New/Edit Item Overlay */}
+          {(showAddItem || editingItem) && (
+            <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+               className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 lg:p-8"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                className="glass-card w-full max-w-2xl border-primary/20 overflow-hidden shadow-3xl shadow-primary/10"
               >
-                📅 {showExportDateRange ? "Cancel" : "Date Range"}
-              </button>
-              <button
-                onClick={handleExportSales}
-                className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 transition-all"
-              >
-                📥 Export
-              </button>
-            </div>
-          </div>
+                <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                  <h3 className="text-3xl font-outfit font-black text-white uppercase tracking-tight">
+                    {showAddItem ? "Add New Food" : "Change Food"}
+                  </h3>
+                  <button onClick={() => { setShowAddItem(false); setEditingItem(null); }} className="hover:rotate-90 transition-transform"><Plus className="w-8 h-8 text-muted-foreground rotate-45" /></button>
+                </div>
+
+                <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Food Name</label>
+                       <input 
+                         type="text" 
+                         placeholder="e.g. Broiler Drumsticks"
+                         value={showAddItem ? newItemName : editName}
+                         onChange={(e) => showAddItem ? setNewItemName(e.target.value) : setEditName(e.target.value)}
+                         className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all font-bold"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Price (₹)</label>
+                       <input 
+                         type="number" 
+                         placeholder="0.00"
+                         value={showAddItem ? newItemPrice : editPrice}
+                         onChange={(e) => showAddItem ? setNewItemPrice(e.target.value) : setEditPrice(e.target.value)}
+                         onWheel={(e) => e.currentTarget.blur()}
+                         className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all font-outfit font-bold"
+                       />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Category</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {["Main Dishes", "Sides", "Beverages", "Desserts", "Specials"].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => showAddItem ? setNewItemCategory(cat) : setEditCategory(cat)}
+                          className={cn(
+                            "py-3 rounded-xl border text-[10px] font-black uppercase transition-all",
+                            (showAddItem ? newItemCategory : editCategory) === cat ? "bg-primary border-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"
+                          )}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Picture</label>
+                    <div className="flex gap-3">
+                      <input 
+                        type="text" 
+                        placeholder="https://..."
+                        value={showAddItem ? newItemImage : editImage}
+                        onChange={(e) => showAddItem ? setNewItemImage(e.target.value) : setEditImage(e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xs"
+                      />
+                      <label className="bg-primary hover:bg-primary-dark text-white px-6 py-4 rounded-2xl cursor-pointer flex items-center gap-2 font-black text-xs transition-all shadow-xl">
+                        <ImageIcon className="w-4 h-4" />
+                        UPLOAD
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={showAddItem ? handleImageUpload : handleEditImageUpload}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-white/[0.02] border-t border-white/10">
+                  <button 
+                    onClick={showAddItem ? handleAddMenuItem : handleUpdateMenuItem}
+                    disabled={uploadingImage || editUploadingImage}
+                    className="w-full py-5 bg-crispy-gradient text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+                  >
+                    {uploadingImage || editUploadingImage ? "UPLOADING..." : "SAVE FOOD"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
 
           {/* Export Date Range Selection */}
           {showExportDateRange && (
-            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="text-sm font-bold text-blue-800 mb-2">
-                Select Date Range for Export
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-700 block mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    aria-label="Export start date"
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    max={getCurrentDate()}
-                    className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-700 block mb-1">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    aria-label="Export end date"
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    max={getCurrentDate()}
-                    min={exportStartDate}
-                    className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Search and Filter */}
-          <div className="mb-3 space-y-2">
-            <input
-              ref={searchInputRef}
-              type="text"
-              aria-label="Search sales"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Search by description, amount, or user..."
-              className="w-full p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-            />
-
-            {/* Category Filter */}
-            <div className="flex gap-2">
-              <select
-                aria-label="Filter sales by category"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="flex-1 p-2 border-2 border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="all">🍽️ All Categories</option>
-                {Object.keys(groupedMenuItems).map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterPayment("all")}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${
-                  filterPayment === "all"
-                    ? "bg-gray-800 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilterPayment("cash")}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${
-                  filterPayment === "cash"
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                💵 Cash
-              </button>
-              <button
-                onClick={() => setFilterPayment("upi")}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${
-                  filterPayment === "upi"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                📱 UPI
-              </button>
-            </div>
-          </div>
-
-          {filteredSales.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <div className="text-4xl mb-2">📝</div>
-              <p className="text-sm">
-                {searchTerm || filterPayment !== "all"
-                  ? "No matching sales found"
-                  : "No sales yet today"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredSales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg font-bold text-green-600">
-                          ₹{sale.amount.toLocaleString("en-IN")}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            sale.payment_method === "cash"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {sale.payment_method === "cash"
-                            ? "💵 Cash"
-                            : "📱 UPI"}
-                        </span>
-                      </div>
-                      <div className="text-gray-700 text-sm font-medium">
-                        {sale.description}
-                      </div>
-                      <div className="text-gray-500 text-xs mt-1">
-                        {new Date(sale.created_at).toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {sale.created_by_name && ` • ${sale.created_by_name}`}
-                      </div>
-                    </div>
-                    {userData?.role === "admin" && (
-                      <button
-                        onClick={() => handleDelete(sale.id)}
-                        className="ml-3 bg-red-100 text-red-600 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-red-200"
-                      >
-                        🗑️
-                      </button>
-                    )}
+            <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+               className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+            >
+              <div className="glass-card w-full max-w-md p-8 border-primary/20 shadow-3xl shadow-primary/10">
+                <h3 className="text-2xl font-outfit font-black text-white mb-6 uppercase tracking-tight">Pick Dates</h3>
+                <div className="space-y-4 mb-8">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Start Date</label>
+                    <input type="date" value={exportStartDate} onChange={(e) => setExportStartDate(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">End Date</label>
+                    <input type="date" value={exportEndDate} onChange={(e) => setExportEndDate(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white" />
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowExportDateRange(false)} className="flex-1 py-4 bg-white/5 text-white rounded-2xl font-black transition-colors hover:bg-white/10">CANCEL</button>
+                  <button onClick={handleExportSales} className="flex-1 py-4 bg-primary text-white rounded-2xl font-black shadow-xl hover:bg-primary-dark transition-colors">SAVE DATA</button>
+                </div>
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
     </div>
   );

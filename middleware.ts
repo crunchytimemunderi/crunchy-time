@@ -33,6 +33,17 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // ─── Utility to create inherit-redirects ──────────────────────────────
+  const redirectWithCookies = (url: URL) => {
+    const redirectResponse = NextResponse.redirect(url)
+    // Next.js App Router requires copying cookies to the redirect response
+    // to preserve session updates (e.g. token refresh or clearance)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value)
+    })
+    return redirectResponse
+  }
+
   // ─── Public / Private route check ───────────────────────────────────────────
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
@@ -42,11 +53,11 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirectedFrom', pathname)
-    return NextResponse.redirect(url)
+    return redirectWithCookies(url)
   }
 
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return redirectWithCookies(new URL('/dashboard', request.url))
   }
 
   // ─── Admin route check ────────────────────────────────────────────────────
@@ -59,8 +70,7 @@ export async function middleware(request: NextRequest) {
   if (user && isAdminRoute) {
     // Try JWT claim first (fastest path)
     const jwtRole =
-      (user.app_metadata?.role as string | undefined) ||
-      (user.user_metadata?.role as string | undefined)
+      (user.app_metadata?.role as string | undefined)
 
     let role = jwtRole
 
@@ -77,7 +87,7 @@ export async function middleware(request: NextRequest) {
     if (role !== 'admin') {
       const url = new URL('/dashboard', request.url)
       url.searchParams.set('error', 'unauthorized')
-      return NextResponse.redirect(url)
+      return redirectWithCookies(url)
     }
   }
 

@@ -1,68 +1,141 @@
 "use client";
 
+import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  LayoutDashboard, 
+  CircleDollarSign, 
+  ReceiptText, 
+  BarChart3, 
+  Wallet, 
+  Users, 
+  LogOut,
+  Menu,
+  X,
+  ChevronRight
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import BrandLogo from "@/components/BrandLogo";
+import { getPendingCount, syncPendingOperations } from "@/lib/offline-queue";
+import { notifications } from "@/lib/notifications";
+import { logger } from "@/lib/logger";
 
-// Define navLinks outside component to avoid recreation
 const navLinks = [
   {
-    name: "Dashboard",
+    name: "Home",
     href: "/dashboard",
-    icon: "📊",
+    icon: LayoutDashboard,
     allowedRoles: ["admin", "staff"],
     permission: "canViewDashboard" as const,
   },
   {
     name: "Sales",
     href: "/sales",
-    icon: "💰",
+    icon: CircleDollarSign,
     allowedRoles: ["admin", "staff"],
     permission: "canAddSales" as const,
   },
   {
     name: "Expenses",
     href: "/expenses",
-    icon: "📝",
+    icon: ReceiptText,
     allowedRoles: ["admin", "staff"],
     permission: "canViewExpenses" as const,
   },
   {
-    name: "Reports",
+    name: "Summary",
     href: "/reports",
-    icon: "📊",
+    icon: BarChart3,
     allowedRoles: ["admin", "staff"],
     permission: "canViewReports" as const,
   },
   {
     name: "Cash",
     href: "/cash",
-    icon: "💵",
+    icon: Wallet,
     allowedRoles: ["admin", "staff"],
-    // Show if user can view OR do reconciliation
     multiPermission: ["canViewCash", "canDoCashReconciliation"] as const,
   },
   {
-    name: "Users",
+    name: "Customers",
+    href: "/customers",
+    icon: Users,
+    allowedRoles: ["admin", "staff"],
+    permission: "canViewDashboard" as const,
+  },
+  {
+    name: "Team",
     href: "/users",
-    icon: "👥",
+    icon: Users,
     allowedRoles: ["admin"],
     permission: "canManageUsers" as const,
   },
 ];
 
 export default function Navbar() {
+  // - [x] Shared Elements: Add `layoutId` to `BrandLogo.tsx` and `Navbar.tsx`
   const { user, userData, signOut, hasPermission, hasAnyPermission, loading } =
     useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
-  // Calculate visible links - MUST be before early returns (React hooks rules)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    getPendingCount().then(setPendingCount);
+    const interval = setInterval(() => getPendingCount().then(setPendingCount), 5000);
+    return () => clearInterval(interval);
+  }, [isOnline]);
+
+  const handleSync = useCallback(async () => {
+    if (syncing || !isOnline) return;
+    setSyncing(true);
+    try {
+      const result = await syncPendingOperations();
+      if (result.synced > 0) {
+        notifications.success("Sync Complete", `${result.synced} records synced`);
+      }
+      if (result.failed > 0) {
+        notifications.error("Sync Partial", `${result.failed} records failed to sync`);
+      }
+      const remaining = await getPendingCount();
+      setPendingCount(remaining);
+    } catch (err) {
+      logger.error("Sync failed:", err);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, isOnline]);
+
+  useEffect(() => {
+    if (!isOnline || pendingCount === 0 || syncing) return;
+    handleSync();
+  }, [isOnline, pendingCount, syncing, handleSync]);
+
   const visibleLinks = useMemo(() => {
-    // If userData not loaded yet, show basic links for all authenticated users
     if (!userData) {
       return navLinks.filter(
         (link) =>
@@ -73,202 +146,213 @@ export default function Navbar() {
     }
 
     return navLinks.filter((link) => {
-      // Check multiPermission (OR logic) if defined
       if ("multiPermission" in link && link.multiPermission) {
         if (!hasAnyPermission(link.multiPermission as any)) {
           return false;
         }
-      }
-      // Check single permission if defined
-      else if ("permission" in link && link.permission) {
+      } else if ("permission" in link && link.permission) {
         if (!hasPermission(link.permission)) {
           return false;
         }
       }
-      // Check role
       return link.allowedRoles.includes(userData.role);
     });
   }, [userData, hasPermission, hasAnyPermission]);
 
-  // Don't show navbar on login page or home page
   if (!user || pathname === "/login" || pathname === "/") {
     return null;
   }
 
-  // Only hide navbar if we're still loading AND don't have user yet
-  // Once user exists, show navbar even if userData is still loading
   if (loading && !user) {
     return null;
   }
 
-  const isAdmin = userData?.role === "admin";
-
   const handleLogout = async () => {
-    if (!confirm("Are you sure you want to logout?")) return;
-
+    // We remove confirm() to prevent browser-level blocking which was causing failure.
     setIsLoggingOut(true);
     try {
+      // 1. Perform absolute signOut
       await signOut();
-
-      // Use window.location.href for hard redirect to ensure it completes
-      // before component unmounts
-      window.location.href = "/login";
+      
+      // 2. Add an artificial delay to allow storage/cookies to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 3. Force hard redirect to clear all contexts
+      window.location.assign("/login");
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("Logout error in Navbar:", error);
       setIsLoggingOut(false);
-      alert("Failed to logout. Please try again.");
+      // Failsafe redirect even on error
+      window.location.assign("/login");
     }
   };
 
+  if (!mounted) return null;
+
   return (
-    <nav
-      key={
-        userData
-          ? `navbar-${userData.username}-${userData.role}`
-          : "navbar-loading"
-      }
-      className="sticky top-0 z-50 backdrop-blur-lg bg-gradient-to-r from-slate-900/95 to-slate-800/95 shadow-2xl border-b border-red-500/20"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo/Brand */}
-          <div className="flex items-center">
-            <Link href="/dashboard" className="flex items-center gap-3 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.png"
-                alt="CRUNCHY TIME"
-                loading="eager"
-                className="h-12 w-12 rounded-full object-cover shadow-lg ring-2 ring-red-500 group-hover:ring-orange-500 transition-all"
-              />
-              <span className="brand-text text-2xl hidden sm:block transition-all group-hover:scale-105">
-                CRUNCHY TIME
-              </span>
-            </Link>
-          </div>
+    <nav className="sticky top-0 z-50 w-full px-4 py-3 pointer-events-none" suppressHydrationWarning={true}>
+      <div className="max-w-7xl mx-auto pointer-events-auto">
+        <motion.div 
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="glass-panel rounded-2xl overflow-hidden shadow-2xl border-white/10"
+        >
+          <div className="px-4 sm:px-6">
+            <div className="flex justify-between items-center h-16">
+              {/* Logo */}
+              <div className="flex items-center">
+              <Link href="/dashboard" className="flex items-center gap-3 group">
+                <Image
+                  src="/logo-text.png"
+                  alt="Crunchy Time"
+                  width={140}
+                  height={40}
+                  className="h-9 w-auto group-hover:scale-105 transition-transform"
+                />
+                <span className="premium-brand text-xl hidden sm:block font-outfit uppercase italic tracking-tighter">
+                  CRUNCHY TIME
+                </span>
+              </Link>
+              </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-2">
-            {visibleLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all transform hover:scale-105 ${
-                    isActive
-                      ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-500/50"
-                      : "text-slate-200 hover:bg-slate-700/50 hover:text-white"
-                  }`}
-                >
-                  <span className="mr-2 text-lg">{link.icon}</span>
-                  {link.name}
-                </Link>
-              );
-            })}
-          </div>
+              {/* Desktop Nav */}
+              <div className="hidden lg:flex items-center gap-1">
+                {visibleLinks.map((link) => {
+                  const isActive = pathname === link.href;
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className={cn(
+                        "relative px-4 py-2 rounded-xl text-sm font-medium transition-all group overflow-hidden hover:bg-white/5",
+                        isActive ? "text-white" : "text-slate-400 hover:text-white"
+                      )}
+                    >
+                      {isActive && (
+                        <motion.div 
+                          layoutId="active-nav-pill"
+                          className="absolute inset-0 bg-crispy-gradient"
+                          transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
+                        />
+                      )}
+                      <div className="relative flex items-center gap-2">
+                        <motion.div
+                          animate={isActive ? { scale: 1.1 } : { scale: 1 }}
+                          className="flex items-center"
+                        >
+                          <Icon className={cn("w-4 h-4", isActive ? "text-white" : "group-hover:scale-110 transition-transform")} />
+                        </motion.div>
+                        <span>{link.name}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
 
-          {/* User Info & Logout */}
-          <div className="hidden md:flex md:items-center md:space-x-4">
-            <div className="text-right bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700">
-              <p className="text-sm font-semibold text-white">
-                {userData?.displayName || user?.email}
-              </p>
-              <p className="text-xs bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent font-bold capitalize">
-                {userData?.role || "User"}
-              </p>
-            </div>
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white text-sm font-semibold rounded-lg hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 transform hover:scale-105"
-            >
-              {isLoggingOut ? "Logging out..." : "🚪 Logout"}
-            </button>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-lg text-slate-200 hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-            >
-              <span className="sr-only">Open menu</span>
-              <svg
-                className={`h-6 w-6 transition-transform duration-300 ${
-                  isMenuOpen ? "rotate-90" : "rotate-0"
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
+              {/* User Section & Mobile Toggle */}
+              <div className="flex items-center gap-3">
+                {mounted && pendingCount > 0 && (
+                  <button
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all"
+                    title={`${pendingCount} pending records`}
+                  >
+                    <div className={cn("w-2 h-2 rounded-full", syncing ? "bg-amber-400 animate-pulse" : "bg-amber-400")} />
+                    <span className="text-xs font-bold hidden sm:inline">{syncing ? "Syncing..." : `${pendingCount} pending`}</span>
+                  </button>
                 )}
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+                {mounted && !isOnline && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" title="Offline">
+                    <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                    <span className="text-xs font-bold hidden sm:inline">Offline</span>
+                  </div>
+                )}
+                <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5">
+                  <div className="text-right">
+                    <p className="text-xs font-semibold text-white leading-tight">
+                      {userData?.displayName || user?.email?.split('@')[0]}
+                    </p>
+                    <p className="text-[10px] text-crispy-gradient font-bold uppercase tracking-wider">
+                      {userData?.role || "Staff"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="p-2 text-slate-400 hover:text-primary transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
 
-      {/* Mobile menu */}
-      {isMenuOpen && (
-        <div className="md:hidden border-t border-red-500/20 bg-slate-900/95 backdrop-blur-lg animate-slide-in">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            {visibleLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`block px-4 py-3 rounded-lg text-base font-semibold transition-all ${
-                    isActive
-                      ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg"
-                      : "text-slate-200 hover:bg-slate-700/50 hover:text-white"
-                  }`}
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/5 text-white"
                 >
-                  <span className="mr-2 text-lg">{link.icon}</span>
-                  {link.name}
-                </Link>
-              );
-            })}
+                  {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Mobile User Info */}
-          <div className="pt-4 pb-3 border-t border-red-500/20">
-            <div className="px-4 mb-3 bg-slate-800/50 rounded-lg p-3 mx-2">
-              <p className="text-base font-semibold text-white">
-                {userData?.displayName || user.email}
-              </p>
-              <p className="text-sm bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent font-bold capitalize">
-                {userData?.role || "User"}
-              </p>
-            </div>
-            <div className="px-2">
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white text-base font-semibold rounded-lg hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-500/30"
+          {/* Mobile Menu */}
+          <AnimatePresence>
+            {isMenuOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="lg:hidden border-t border-white/5 overflow-hidden"
               >
-                {isLoggingOut ? "Logging out..." : "🚪 Logout"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="p-4 space-y-2">
+                  {visibleLinks.map((link) => {
+                    const isActive = pathname === link.href;
+                    const Icon = link.icon;
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-xl transition-all",
+                          isActive ? "bg-crispy-gradient text-white shadow-lg" : "hover:bg-white/5 text-slate-300"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-5 h-5" />
+                          <span className="font-medium">{link.name}</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 opacity-50" />
+                      </Link>
+                    );
+                  })}
+                  
+                  <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-crispy-gradient flex items-center justify-center font-bold text-white shadow-lg">
+                        {(userData?.displayName || user?.email)?.[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{userData?.displayName || "User"}</p>
+                        <p className="text-xs text-slate-400 capitalize">{userData?.role || "Staff"}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="p-3 rounded-xl bg-destructive/10 text-destructive border border-destructive/20"
+                    >
+                      <LogOut className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
     </nav>
   );
 }

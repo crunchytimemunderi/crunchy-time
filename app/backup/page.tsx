@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -8,8 +11,17 @@ import { supabase } from "@/lib/supabase";
 export default function BackupPage() {
   const { hasPermission } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: "success" | "error" | "info" }[]>([]);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const addToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
 
   const triggerBackup = async () => {
     setLoading(true);
@@ -37,35 +49,50 @@ export default function BackupPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        addToast(errorData.error || "Backup failed", "error");
         setError(errorData.error || "Backup failed");
         return;
       }
 
-      // Get stats from headers
       const statsHeader = response.headers.get("X-Backup-Stats");
       const stats = statsHeader ? JSON.parse(statsHeader) : null;
 
-      // Download the file
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      // Download to "Crunchy Time Backup" subfolder in Downloads
-      const fileName = `CrunchyTime_DailySlip_${stats?.date || new Date().toISOString().split("T")[0]}.xlsx`;
-      a.download = `Crunchy Time Backup/${fileName}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const sanitize = (s: string) => s.replace(/[^a-z0-9]/gi, "-");
+      const safeDate = sanitize(stats?.date || new Date().toISOString().split("T")[0]);
+      const fileName = `Daily_Slip_${safeDate}.xlsx`;
+
+      console.log(`[Deep-Fix:Backup:Ready] Preparing: ${fileName}`);
+      addToast("Preparing backup file...", "info");
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = base64data;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          console.log(`[Deep-Fix:Backup:Success] Download triggered`);
+        }, 10000);
+      };
 
       setResult({
         success: true,
-        message: "Daily Slip backup downloaded successfully",
-        fileName: `CrunchyTime_DailySlip_${stats?.date}.xlsx`,
-        ...stats,
+        message: `Backup for ${safeDate} generated successfully`,
+        fileName,
+        ...stats
       });
+      addToast("Backup saved!", "success");
     } catch (err: any) {
-      setError(err.message || "Failed to trigger backup");
+      console.error("Error generating backup:", err);
+      setError(err.message || "Failed to generate backup");
+      addToast("Failed to generate backup", "error");
     } finally {
       setLoading(false);
     }
@@ -95,25 +122,22 @@ export default function BackupPage() {
       ) : (
         <div className="min-h-screen bg-gray-900">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
             <div className="mb-8">
               <h1 className="text-4xl font-bold text-white mb-2">
-                💾 Daily Slip Backups
+                💾 Save Data
               </h1>
               <p className="text-gray-400">
-                Daily Slip backups download automatically when you log in. Use
-                this page for manual downloads.
+                Your data saves itself when you log in. Use this page to save it yourself.
               </p>
             </div>
 
-            {/* Auto Backup Info */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-green-900 mb-3 flex items-center gap-2">
-                ✨ Automatic Daily Slip Backup on Login
+                ✨ Data saves every day
               </h2>
               <div className="space-y-2 text-gray-700">
                 <p>
-                  <span className="font-medium">📥 Auto-download:</span> Every
+                  <span className="font-medium">📥 Auto-save:</span> Every
                   time you log in, yesterday&apos;s Daily Slip downloads
                   automatically
                 </p>
@@ -135,10 +159,9 @@ export default function BackupPage() {
               </div>
             </div>
 
-            {/* Info Card */}
             <div className="bg-white rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">
-                📋 Backup Details
+                📋 File Details
               </h2>
               <div className="space-y-2 text-gray-700">
                 <p>
@@ -164,14 +187,12 @@ export default function BackupPage() {
               </div>
             </div>
 
-            {/* Manual Trigger */}
             <div className="bg-white rounded-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">
-                📥 Manual Download
+                📥 Save Manually
               </h2>
               <p className="text-gray-700 mb-4">
-                Download a Daily Slip backup manually (if you need it right now
-                or missed the auto-download)
+                Save your data now if you want.
               </p>
               <button
                 onClick={triggerBackup}
@@ -185,19 +206,18 @@ export default function BackupPage() {
                 {loading ? (
                   <>
                     <span className="animate-spin">⏳</span>
-                    Generating Backup...
+                    Saving...
                   </>
                 ) : (
-                  <>📥 Download Yesterday&apos;s Backup</>
+                  <>📥 Save Yesterday&apos;s Data</>
                 )}
               </button>
             </div>
 
-            {/* Result */}
             {result && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-bold text-green-900 mb-3 flex items-center gap-2">
-                  ✅ Backup Successful!
+                  ✅ Saved!
                 </h3>
                 <div className="space-y-2 text-gray-700">
                   <p>
@@ -236,11 +256,10 @@ export default function BackupPage() {
               </div>
             )}
 
-            {/* Error */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-bold text-red-900 mb-2 flex items-center gap-2">
-                  ❌ Download Failed
+                  ❌ Error
                 </h3>
                 <p className="text-red-700">{error}</p>
                 <div className="mt-4 text-sm text-gray-600">
@@ -257,7 +276,6 @@ export default function BackupPage() {
               </div>
             )}
 
-            {/* Setup Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
               <h3 className="text-lg font-bold text-blue-900 mb-3">
                 ℹ️ How Automatic Backups Work
@@ -286,6 +304,36 @@ export default function BackupPage() {
           </div>
         </div>
       )}
+
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={cn(
+                "px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border backdrop-blur-xl pointer-events-auto",
+                toast.type === "success" 
+                  ? "bg-green-500/10 border-green-500/20 text-green-400"
+                  : toast.type === "error"
+                  ? "bg-red-500/10 border-red-500/20 text-red-400"
+                  : "bg-blue-500/10 border-blue-500/20 text-blue-400"
+              )}
+            >
+              {toast.type === "success" ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : toast.type === "error" ? (
+                <AlertTriangle className="w-5 h-5" />
+              ) : (
+                <RotateCcw className="w-5 h-5 animate-spin" />
+              )}
+              <span className="font-medium">{toast.message}</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </ProtectedRoute>
   );
 }

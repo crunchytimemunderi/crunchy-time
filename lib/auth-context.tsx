@@ -59,7 +59,7 @@ export function AuthProvider({
   const [user, setUser] = useState<User | null>(initialUser);
   const [userData, setUserData] = useState<UserData | null>(null);
   // Start with loading false if we already have a user (or definitively no user) from the server
-  const [loading, setLoading] = useState(!initialUser && typeof window === "undefined");
+  const [loading, setLoading] = useState(!initialUser);
 
 
   // Helper to save userData to localStorage
@@ -170,8 +170,13 @@ export function AuthProvider({
         setUser(user);
         
         if (user) {
-          // If we have a user but no userData, fetch it
-          if (!userData) {
+          const cached = loadUserDataFromCache();
+          if (cached) {
+            logger.debug("⚡ Using cached userData, skipping DB fetch");
+            if (mounted) {
+              setUserData(cached);
+            }
+          } else {
             const data = await fetchUserData(user.id);
             if (mounted && data) {
               setUserData(data);
@@ -238,7 +243,8 @@ export function AuthProvider({
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [fetchUserData, loadUserDataFromCache, saveUserDataToCache, userData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchUserData, loadUserDataFromCache, saveUserDataToCache]);
 
   // Real-time listener for user data changes (permissions, role, etc.)
   useEffect(() => {
@@ -291,7 +297,9 @@ export function AuthProvider({
         });
 
       if (authError) {
-        logger.error("Auth error:", authError);
+        if (!authError.message.includes("Invalid login credentials")) {
+          logger.error("Auth error:", authError);
+        }
         throw authError;
       }
 
@@ -347,38 +355,50 @@ export function AuthProvider({
   // Sign out
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // Clear all auth state
+      // 1. Clear Supabase session with timeout
+      const signOutPromise = supabase.auth.signOut();
+      await Promise.race([
+        signOutPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("SignOut timeout")), 1500))
+      ]).catch(e => console.warn("Supabase signOut error/timeout (proceeding with local clear):", e));
+      
+    } catch (error) {
+      console.error("SignOut error:", error);
+    } finally {
+      // 2. Clear all local auth state
       setUser(null);
       setUserData(null);
+      setLoading(false);
 
-      // Clear cookie
-      document.cookie = "userRole=; path=/; max-age=0; SameSite=Lax; Secure";
-
-      // Clear all localStorage items
-      try {
-        localStorage.removeItem("cached_user_data");
-        localStorage.removeItem("was_authenticated");
-        logger.debug("🧹 Cleared all cached auth data");
-      } catch (e) {
-        logger.warn("Failed to clear localStorage", e);
+      // 3. AGGRESSIVE Cookie Clearance
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+        
+        // Clear common Supabase and App cookies across all possible paths
+        document.cookie = name + "=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure";
+        document.cookie = name + "=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=" + window.location.hostname + "; SameSite=Lax; Secure";
       }
-    } catch (error) {
-      logger.error("Error signing out:", error);
-      throw error;
+
+      // 4. Force clear all localStorage and sessionStorage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log("🧼 All local storage and session storage purged");
+      } catch (e) {
+        console.warn("Failed to clear storage:", e);
+      }
     }
   };
 
   // Check if user has specific permission
-  const hasPermission = (permission: keyof CustomPermissions): boolean => {
+  const hasPermission = useCallback((permission: keyof CustomPermissions): boolean => {
     if (!userData) return false;
 
-    // Admin always has all permissions
     if (userData.role === "admin") return true;
 
-    // Check custom permissions if set
     if (
       userData.customPermissions &&
       permission in userData.customPermissions
@@ -386,7 +406,6 @@ export function AuthProvider({
       return userData.customPermissions[permission] === true;
     }
 
-    // Default permissions for staff
     const staffDefaults: CustomPermissions = {
       canViewDashboard: true,
       canAddSales: true,
@@ -409,23 +428,19 @@ export function AuthProvider({
     };
 
     return staffDefaults[permission] === true;
-  };
+  }, [userData]);
 
   // Check if user has ANY of the specified permissions (OR logic)
-  const hasAnyPermission = (
+  const hasAnyPermission = useCallback((
     permissions: (keyof CustomPermissions)[],
   ): boolean => {
     if (!userData) return false;
-
-    // Admin always has all permissions
     if (userData.role === "admin") return true;
-
-    // Check if user has at least one of the permissions
     return permissions.some((permission) => hasPermission(permission));
-  };
+  }, [userData, hasPermission]);
 
   // Check if user has required role
-  const hasRole = (requiredRole: UserRole): boolean => {
+  const hasRole = useCallback((requiredRole: UserRole): boolean => {
     if (!userData) return false;
 
     // Admin has access to everything
@@ -433,7 +448,7 @@ export function AuthProvider({
 
     // Staff can only access staff-level features
     return userData.role === requiredRole;
-  };
+  }, [userData]);
 
   const value = {
     user,

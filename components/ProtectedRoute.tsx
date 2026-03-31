@@ -102,7 +102,7 @@ export default function ProtectedRoute({
 
   // Check admin role requirement - ONLY after userData has loaded
   if (requiredRole === "admin" && userData && userData.role !== "admin") {
-    console.log("❌ Access denied - not an admin");
+    logger.debug("❌ Access denied - not an admin");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <p className="text-slate-300">Access denied. Redirecting...</p>

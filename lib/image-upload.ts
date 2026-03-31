@@ -24,7 +24,8 @@ export async function uploadImage(
     }
 
     // Generate unique filename
-    const fileExt = file.name.split(".").pop();
+    const nameParts = file.name.split(".");
+    const fileExt = nameParts.length > 1 ? nameParts.pop() : "bin";
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
     // Upload to Supabase Storage
