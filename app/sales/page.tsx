@@ -1196,7 +1196,7 @@ function SalesContent() {
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 pt-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 2xl:grid-cols-4 gap-3 pt-2">
                     {items.map((item) => (
                       <motion.div
                         key={item.id}
@@ -1379,7 +1379,7 @@ function SalesContent() {
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-3">
                         <p className="text-sm font-outfit font-black text-white">{formatINR(item.total)}</p>
-                        <button onClick={() => handleRemoveFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleRemoveFromCart(item.id)} className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shrink-0"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </motion.div>
                   ))}

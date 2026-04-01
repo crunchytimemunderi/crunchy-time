@@ -409,3 +409,68 @@
   }
 }
 
+/* --- Native Mobile App Styles --- */
+
+/* Prevent text selection on UI elements */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Minimum touch target size (Apple HIG: 44pt) */
+@media (max-width: 768px) {
+  button, a, [role="button"], input[type="submit"], input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove hover effects on mobile, use active instead */
+  .hover-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .hover-lift:active {
+    transform: scale(0.96);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Full-width cards on mobile */
+  .mobile-full {
+    border-radius: 0;
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
+
+  /* Remove rounded corners on edge-to-edge cards */
+  .glass-card {
+    border-radius: 1rem;
+  }
+
+  /* Larger tap targets for delete/edit buttons */
+  .mobile-tap-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Prevent pull-to-refresh on mobile */
+html {
+  overscroll-behavior-y: contain;
+}
+
+/* Smooth scrolling on iOS */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent zoom on input focus (iOS) */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+

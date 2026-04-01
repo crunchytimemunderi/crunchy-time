@@ -3,6 +3,7 @@ import { Outfit, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
+import MobileTabBar from "@/components/MobileTabBar";
 import NotificationContainer from "@/components/NotificationContainer";
 import MotionProvider from "@/components/MotionProvider";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
@@ -64,9 +65,10 @@ export default async function RootLayout({
         <AuthProvider initialUser={user}>
           <div className="relative flex min-h-screen flex-col" suppressHydrationWarning={true}>
             <Navbar />
+            <MobileTabBar />
             <NotificationContainer />
             <MotionProvider>
-              <main className="flex-1">
+              <main className="flex-1 pb-20 md:pb-0">
                 {children}
               </main>
             </MotionProvider>

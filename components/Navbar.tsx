@@ -190,7 +190,7 @@ export default function Navbar() {
   if (!mounted) return null;
 
   return (
-    <nav className="sticky top-0 z-50 w-full px-4 py-3 pointer-events-none" suppressHydrationWarning={true}>
+    <nav className="sticky top-0 z-50 w-full px-4 py-3 pointer-events-none hidden md:block" suppressHydrationWarning={true}>
       <div className="max-w-7xl mx-auto pointer-events-auto">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
